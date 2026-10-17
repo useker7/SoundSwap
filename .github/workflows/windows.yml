@@ -1,0 +1,38 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  pull_request:
+    paths: ["windows/**", ".github/workflows/windows.yml"]
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Unit tests
+        run: dotnet test windows/SoundSwap.Tests/SoundSwap.Tests.csproj -c Release --logger "trx;LogFileName=results.trx"
+
+      - name: Publish single-file exe
+        run: >
+          dotnet publish windows/SoundSwap/SoundSwap.csproj -c Release -r win-x64 --self-contained false
+          -p:PublishSingleFile=true -o publish
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoundSwap-windows
+          path: publish/SoundSwap.exe
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test-results
+          path: windows/SoundSwap.Tests/TestResults/*.trx

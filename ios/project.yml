@@ -1,0 +1,31 @@
+# Xcode projesini üretmek için: brew install xcodegen && cd ios && xcodegen generate
+name: SoundSwap
+options:
+  bundleIdPrefix: com.soundswap
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  SoundSwap:
+    type: application
+    platform: iOS
+    sources: [SoundSwap]
+    scheme: {}
+    info:
+      path: SoundSwap/Info.plist
+      properties:
+        CFBundleDisplayName: SoundSwap
+        UILaunchScreen: {}
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSMicrophoneUsageDescription: "Microphone access is needed to stream the phone's microphone to your PC."
+        NSLocalNetworkUsageDescription: "Needed to find SoundSwap PCs on your network and exchange audio with them."
+        NSBonjourServices: [_soundswap._udp]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.soundswap.app
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

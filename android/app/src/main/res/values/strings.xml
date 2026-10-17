@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SoundSwap</string>
+    <string name="stop">Stop</string>
+    <string name="channel_name">Audio streaming</string>
+    <string name="notification_text">Streaming audio with %1$s</string>
+</resources>

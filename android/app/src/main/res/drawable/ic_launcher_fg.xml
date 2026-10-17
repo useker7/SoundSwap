@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- assets/logo.svg ile aynı çubuklar; uyarlanabilir simgenin 66dp güvenli alanına ölçeklendi (x2.4). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M34.8,44.4 L34.8,63.6 M44.4,34.8 L44.4,73.2 M54,39.6 L54,68.4 M63.6,32.4 L63.6,75.6 M73.2,44.4 L73.2,63.6"
+        android:strokeWidth="6.24"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round" />
+</vector>

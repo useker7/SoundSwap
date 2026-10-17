@@ -1,0 +1,47 @@
+# Builds the iOS app on a macOS runner and packages an unsigned .ipa.
+# Sign and install it with your own Apple ID using Sideloadly or AltStore (works from Windows).
+name: iOS
+
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/ios.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen and generate the project
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Build
+        run: |
+          cd ios
+          xcodebuild \
+            -project SoundSwap.xcodeproj \
+            -scheme SoundSwap \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          cd ios
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/SoundSwap.app Payload/
+          zip -qr SoundSwap-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SoundSwap-unsigned-ipa
+          path: ios/SoundSwap-unsigned.ipa

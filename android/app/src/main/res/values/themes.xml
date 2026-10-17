@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#2563EB</color>
+    <color name="muted">#808080</color>
+    <color name="good">#16A34A</color>
+    <color name="warn">#D97706</color>
+    <color name="bad">#DC2626</color>
+    <color name="ic_bg">#2563EB</color>
+
+    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:colorPrimary">@color/accent</item>
+        <item name="android:statusBarColor">#F5F5F5</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Label">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

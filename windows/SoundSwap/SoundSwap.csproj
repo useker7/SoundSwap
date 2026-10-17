@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Yalnızca sistem tepsisi simgesi (NotifyIcon) için -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>SoundSwap</AssemblyName>
+    <RootNamespace>SoundSwap</RootNamespace>
+    <ApplicationIcon>..\..\assets\SoundSwap.ico</ApplicationIcon>
+    <Version>1.1.0</Version>
+    <Product>SoundSwap</Product>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\assets\SoundSwap.ico" Link="Assets\SoundSwap.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio.Core" Version="2.2.1" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+  </ItemGroup>
+
+</Project>
