@@ -1,12 +1,12 @@
 package com.soundswap.app
 
-/** SoundSwap UDP protokolü — Windows ve iOS tarafıyla aynı (bkz. README). */
+/** SoundSwap UDP protocol — same as the Windows and iOS side (see README). */
 object Protocol {
     const val PORT = 50505
     const val VERSION: Byte = 1
     const val HEADER_SIZE = 8
     const val SAMPLE_RATE = 48000
-    /** Mikrofon paket boyu: 5 ms. */
+    /** Microphone packet length: 5 ms. */
     const val MIC_FRAME_SAMPLES = 240
 
     const val HELLO = 1
@@ -38,7 +38,7 @@ object Protocol {
         return buf
     }
 
-    /** Geçerli bir SoundSwap paketiyse tipini, değilse -1 döndürür. */
+    /** Returns the packet type if it is a valid SoundSwap packet, otherwise -1. */
     fun typeOf(buf: ByteArray, length: Int): Int {
         if (length < HEADER_SIZE || buf[0] != 'S'.code.toByte() || buf[1] != 'W'.code.toByte() || buf[2] != VERSION) return -1
         return buf[3].toInt() and 0xff

@@ -12,16 +12,16 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import java.net.Inet4Address
 
 /**
- * Yerel ağdaki SoundSwap bilgisayarlarını bulur:
- * - Bonjour/mDNS ("_soundswap._udp"; Windows uygulaması kendini böyle duyurur)
- * - Yedek olarak UDP yayın (DISCOVER) — mDNS'in engellendiği ağlar için.
- * Liste ana iş parçacığında güncellenir; Compose doğrudan izleyebilir.
+ * Finds SoundSwap PCs on the local network:
+ * - Bonjour/mDNS ("_soundswap._udp"; this is how the Windows app advertises itself)
+ * - UDP broadcast (DISCOVER) as a fallback, for networks that block mDNS.
+ * The list is updated on the main thread, so Compose can observe it directly.
  */
 class PcDiscovery(context: Context) {
 
     /**
-     * Aynı bilgisayar birden çok yoldan/IP'den görülebilir; ada göre tek kayıt tutulur.
-     * Yayına yanıt veren adres tercih edilir (telefondan ulaşılabildiği kesin).
+     * The same PC may be seen via several paths/IPs; one entry is kept per name.
+     * The address that answered the broadcast is preferred (it is known to be reachable from the phone).
      */
     data class Pc(
         val name: String,
@@ -85,7 +85,7 @@ class PcDiscovery(context: Context) {
         runCatching { nsd.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, l) }
     }
 
-    // Eski Android sürümleri aynı anda tek çözümlemeye izin verir; sırayla yapıyoruz.
+    // Older Android versions allow only one resolve at a time, so we resolve sequentially.
     @Suppress("DEPRECATION")
     private fun resolveNext() {
         if (resolving || !running) return
@@ -115,7 +115,7 @@ class PcDiscovery(context: Context) {
         return (addresses.firstOrNull { it is Inet4Address } ?: addresses.firstOrNull())?.hostAddress
     }
 
-    // ---- UDP yayın ----
+    // ---- UDP broadcast ----
 
     private fun broadcastLoop() {
         while (running) {

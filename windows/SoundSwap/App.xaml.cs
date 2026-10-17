@@ -11,7 +11,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        // Yönetici izniyle açılan yardımcı süreç: sanal mikrofon kurulumu.
+        // Helper process launched with admin rights: installs the virtual microphone.
         if (e.Args.Length > 0 && e.Args[0] == VirtualMic.InstallArg)
         {
             Shutdown((int)VirtualMic.RunInstall(e.Args.Length > 1 ? e.Args[1] : ""));
@@ -21,8 +21,8 @@ public partial class App : Application
         string? Arg(string name) => e.Args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
         string? screenshot = Arg("--screenshot");
 
-        // Tek kopya: ikinci kez açılırsa çalışan kopyanın penceresini öne getir.
-        // (Ekran görüntüsü modu tasarım kontrolü içindir; çalışan kopyaya dokunmaz.)
+        // Single instance: if launched again, bring the running instance's window to the front.
+        // (Screenshot mode is for design checks; it leaves the running instance alone.)
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, "SoundSwap.Show");
         if (screenshot == null)
         {

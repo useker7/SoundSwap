@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** Arayüzün 10 kez/sn okuduğu motor durumu. */
+/** Engine state the UI reads 10 times per second. */
 private data class EngineSnapshot(
     val running: Boolean = false,
     val connected: Boolean = false,
@@ -213,7 +213,7 @@ private fun SoundSwapScreen(discovery: PcDiscovery) {
         }
     }
 
-    /** Akış sürerken değişen ayarları uygula (motor yeni ayarlarla yeniden başlar). */
+    /** Apply settings changed while streaming (the engine restarts with the new settings). */
     fun applyWhileRunning() {
         save()
         StreamService.engine?.let { connect(it.config.host) }
@@ -323,7 +323,7 @@ private fun SoundSwapScreen(discovery: PcDiscovery) {
     }
 }
 
-// ---- Bölümler ----
+// ---- Sections ----
 
 @Composable
 private fun Header() {
@@ -425,7 +425,7 @@ private fun ConnectionCard(snap: EngineSnapshot, onDisconnect: () -> Unit) {
     }
 }
 
-// ---- Yapı taşları ----
+// ---- Building blocks ----
 
 @Composable
 private fun SectionTitle(text: String) {
@@ -555,7 +555,7 @@ private fun ManualAddressDialog(initial: String, onDismiss: () -> Unit, onConnec
     )
 }
 
-/** Mikrofon kaynakları; kulaklık takılıp çıkarıldıkça güncellenir. */
+/** Microphone sources; updated as headsets are plugged in and removed. */
 @Composable
 private fun rememberInputOptions(): List<InputOption> {
     val context = LocalContext.current

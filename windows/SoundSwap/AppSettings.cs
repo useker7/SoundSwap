@@ -10,7 +10,7 @@ sealed class AppSettings
     public bool ReceiveMic { get; set; } = true;
     public int MicBufferMs { get; set; } = 30;
     public bool MutePcWhileStreaming { get; set; }
-    /// <summary>null = otomatik (bulunan sanal mikrofon).</summary>
+    /// <summary>null = automatic (the detected virtual microphone).</summary>
     public string? MicDeviceId { get; set; }
     public bool TrayHintShown { get; set; }
 
@@ -38,7 +38,7 @@ sealed class AppSettings
         catch { }
     }
 
-    // "Windows ile başlat" ayarı kayıt defterinde tutulur ki uygulama taşınınca yol güncellensin.
+    // The "Start with Windows" setting lives in the registry so the path can be updated if the app is moved.
     const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
     public static bool StartWithWindows

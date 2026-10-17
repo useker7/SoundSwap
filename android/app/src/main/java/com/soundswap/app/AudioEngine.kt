@@ -21,8 +21,8 @@ import java.net.SocketTimeoutException
 import kotlin.math.abs
 
 /**
- * PC ile ses alışverişini yapan motor.
- * İş parçacıkları: ağ alımı, HELLO (bağlantıyı canlı tutma), çalma (AudioTrack), mikrofon (AudioRecord).
+ * Engine that exchanges audio with the PC.
+ * Threads: network receive, HELLO (keep-alive), playback (AudioTrack), microphone (AudioRecord).
  */
 class AudioEngine(context: Context, val config: Config) {
 
@@ -33,7 +33,7 @@ class AudioEngine(context: Context, val config: Config) {
         val sendMic: Boolean,
         val jitterMs: Int,
         val echoCancel: Boolean,
-        /** 0 = otomatik */
+        /** 0 = automatic */
         val inputDeviceId: Int,
     )
 
@@ -43,7 +43,7 @@ class AudioEngine(context: Context, val config: Config) {
         soTimeout = 500
         receiveBufferSize = 256 * 1024
         try {
-            trafficClass = 0xB8 // DSCP EF: Wi-Fi'da ses önceliği (WMM)
+            trafficClass = 0xB8 // DSCP EF: voice priority on Wi-Fi (WMM)
         } catch (_: Exception) {
         }
     }
@@ -52,13 +52,13 @@ class AudioEngine(context: Context, val config: Config) {
     @Volatile private var address: InetAddress? = null
     @Volatile private var lastAck = 0L
 
-    // Ses yönlendirme durumunu geri yüklemek için
+    // For restoring the audio routing state
     private var communicationMode = false
     private var savedMode = AudioManager.MODE_NORMAL
     private var startedSco = false
     private var changedSpeakerphone = false
 
-    // Arayüz için durum
+    // State for the UI
     @Volatile var pcName: String? = null
         private set
     @Volatile var error: String? = null
@@ -98,7 +98,7 @@ class AudioEngine(context: Context, val config: Config) {
         val bye = Protocol.packet(Protocol.BYE)
         val a = address
         if (a != null) {
-            // Ağ işlemi ana iş parçacığında yapılamaz.
+            // Network I/O is not allowed on the main thread.
             val t = Thread {
                 try {
                     socket.send(DatagramPacket(bye, bye.size, a, config.port))
@@ -126,7 +126,7 @@ class AudioEngine(context: Context, val config: Config) {
         t.start()
     }
 
-    // ---- Ağ ----
+    // ---- Network ----
 
     private fun helloLoop() {
         val flags = (if (config.playPcAudio) Protocol.FLAG_WANTS_PC_AUDIO else 0) or
@@ -182,7 +182,7 @@ class AudioEngine(context: Context, val config: Config) {
                     val seq = Protocol.seqOf(buf)
                     if (hasSeq) {
                         val diff = seq - lastSeq
-                        if (diff in -1000..0) continue // geç kalmış / yinelenen paket
+                        if (diff in -1000..0) continue // late / duplicate packet
                         if (diff > 1) packetsLost += (diff - 1).toLong()
                     }
                     lastSeq = seq
@@ -200,7 +200,7 @@ class AudioEngine(context: Context, val config: Config) {
         }
     }
 
-    // ---- Çalma ----
+    // ---- Playback ----
 
     private fun playbackLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
@@ -227,7 +227,7 @@ class AudioEngine(context: Context, val config: Config) {
             .setBufferSizeInBytes(maxOf(minBuf, burst * 4 * 8))
             .build()
 
-        // Oboe'daki yöntem: tamponu 2 burst ile başlat, AudioTrack takılırsa büyüt.
+        // Same approach as Oboe: start the buffer at 2 bursts, grow it if AudioTrack underruns.
         var bufFrames = track.setBufferSizeInFrames(burst * 2)
         trackBufferMs = bufFrames * 1000.0 / Protocol.SAMPLE_RATE
         var lastUnderruns = track.underrunCount
@@ -267,7 +267,7 @@ class AudioEngine(context: Context, val config: Config) {
         }
     }
 
-    // ---- Mikrofon ----
+    // ---- Microphone ----
 
     @SuppressLint("MissingPermission")
     private fun micLoop() {
@@ -336,7 +336,7 @@ class AudioEngine(context: Context, val config: Config) {
         }
     }
 
-    // ---- Ses yönlendirme ----
+    // ---- Audio routing ----
 
     private fun selectedInputDevice(): AudioDeviceInfo? =
         if (config.inputDeviceId == 0) null
@@ -352,8 +352,8 @@ class AudioEngine(context: Context, val config: Config) {
     }
 
     /**
-     * Yankı engelleme veya Bluetooth kulaklık mikrofonu "iletişim modu" gerektirir.
-     * Bu modda Android sesi ahizeye yönlendirdiği için, kulaklık yoksa hoparlöre çeviriyoruz.
+     * Echo cancellation or a Bluetooth headset mic requires "communication mode".
+     * In that mode Android routes audio to the earpiece, so without a headset we switch to the speaker.
      */
     @Suppress("DEPRECATION")
     private fun setupRouting() {

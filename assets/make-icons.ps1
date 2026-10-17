@@ -1,4 +1,4 @@
-﻿# Logo (assets/logo.svg ile aynı geometri) için PNG ve çok boyutlu ICO üretir.
+﻿# Generates PNGs and a multi-size ICO of the logo (same geometry as assets/logo.svg).
 #   powershell -ExecutionPolicy Bypass -File assets\make-icons.ps1
 Add-Type -AssemblyName System.Drawing
 $out = $PSScriptRoot
@@ -26,7 +26,7 @@ function PngBytes($bmp) {
     return , $ms.ToArray()
 }
 
-# Windows ICO (PNG gömülü girdiler)
+# Windows ICO (entries with embedded PNGs)
 $sizes = 16, 20, 24, 32, 40, 48, 64, 128, 256
 $images = foreach ($s in $sizes) { , (PngBytes (Render $s $false)) }
 $fs = [System.IO.File]::Create((Join-Path $out "SoundSwap.ico"))
@@ -42,11 +42,11 @@ for ($i = 0; $i -lt $sizes.Count; $i++) {
 foreach ($img in $images) { $w.Write($img) }
 $w.Close()
 
-# Mobil uygulama simgeleri için: daire (yuvarlak) ve tam kare (iOS kendisi yuvarlatır)
+# For the mobile app icons: a circle (round) and a full square (iOS rounds it itself)
 (Render 1024 $false).Save((Join-Path $out "logo-1024.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 (Render 1024 $true).Save((Join-Path $out "logo-square-1024.png"), [System.Drawing.Imaging.ImageFormat]::Png)
 
-# iOS uygulama simgesi: saydamlık (alfa kanalı) olmamalı
+# iOS app icon: must not have transparency (alpha channel)
 $sq = Render 1024 $true
 $rgb = New-Object System.Drawing.Bitmap 1024, 1024, ([System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
 $g = [System.Drawing.Graphics]::FromImage($rgb); $g.DrawImage($sq, 0, 0, 1024, 1024); $g.Dispose()

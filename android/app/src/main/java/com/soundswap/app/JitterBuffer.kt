@@ -1,16 +1,16 @@
 package com.soundswap.app
 
 /**
- * Ağdan gelen sesi tamponlayan halka tampon (Windows tarafındaki JitterBuffer.cs ile aynı mantık).
- * - Başta hedef seviyeye kadar dolar, sonra çalar; boşalırsa sessizlik verip yeniden dolar.
- * - Saat kaymasına karşı: son 0,5 sn'deki en düşük doluluk hedefi belirgin aşarsa fazlalık atılır.
+ * Ring buffer for audio arriving from the network (same logic as JitterBuffer.cs on Windows).
+ * - Fills up to the target level first, then plays; on underrun it outputs silence and fills again.
+ * - Against clock drift: if the lowest fill level in the last 0.5 s is clearly above target, the excess is dropped.
  */
 class JitterBuffer(private val channels: Int, private val sampleRate: Int, capacityMs: Int, targetMs: Int) {
     private val ring = ShortArray(sampleRate * capacityMs / 1000 * channels)
     private val windowFrames = sampleRate / 2
     private val slackFrames = sampleRate * 8 / 1000
     private var readPos = 0
-    private var count = 0 // örnek cinsinden
+    private var count = 0 // in samples
     private var priming = true
     private var targetFrames = 0
     private var windowMin = Int.MAX_VALUE
@@ -56,7 +56,7 @@ class JitterBuffer(private val channels: Int, private val sampleRate: Int, capac
         count += n
     }
 
-    /** dst'nin ilk [length] örneğini her zaman doldurur (eksik kısım sessizlik). */
+    /** Always fills the first [length] samples of dst (any shortfall is silence). */
     @Synchronized
     fun read(dst: ShortArray, length: Int) {
         val frames = length / channels

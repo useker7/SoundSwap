@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-/// Ses iş parçacığında kullanılabilecek kadar hafif kilit.
+/// Lock lightweight enough to use on the audio thread.
 final class UnfairLock {
     private let p: UnsafeMutablePointer<os_unfair_lock>
 
@@ -19,9 +19,9 @@ final class UnfairLock {
     @inline(__always) func unlock() { os_unfair_lock_unlock(p) }
 }
 
-/// Ağdan gelen sesi tamponlayan halka tampon (Windows/Android'deki JitterBuffer ile aynı mantık).
-/// - Başta hedef seviyeye kadar dolar, sonra çalar; boşalırsa sessizlik verip yeniden dolar.
-/// - Saat kaymasına karşı: son 0,5 sn'deki en düşük doluluk hedefi belirgin aşarsa fazlalık atılır.
+/// Ring buffer for audio arriving from the network (same logic as JitterBuffer on Windows/Android).
+/// - Fills up to the target level first, then plays; on underrun it outputs silence and fills again.
+/// - Against clock drift: if the lowest fill level in the last 0.5 s is clearly above target, the excess is dropped.
 final class JitterBuffer {
     private let lock = UnfairLock()
     private let ring: UnsafeMutablePointer<Float>
@@ -31,7 +31,7 @@ final class JitterBuffer {
     private let windowFrames: Int
     private let slackFrames: Int
     private var readPos = 0
-    private var count = 0 // örnek cinsinden
+    private var count = 0 // in samples
     private var priming = true
     private var targetFrames = 1
     private var windowMin = Int.max
@@ -89,7 +89,7 @@ final class JitterBuffer {
         count += n
     }
 
-    /// dst'nin ilk `length` örneğini her zaman doldurur (eksik kısım sessizlik).
+    /// Always fills the first `length` samples of dst (any shortfall is silence).
     func read(into dst: UnsafeMutablePointer<Float>, count length: Int) {
         lock.lock()
         defer { lock.unlock() }
@@ -155,8 +155,8 @@ final class JitterBuffer {
     }
 }
 
-/// Mikrofon için basit FIFO: ses iş parçacığı yazar, ağ iş parçacığı 5 ms'lik bloklar okur.
-/// Gecikme birikmesin diye `maxSamples` üstü en eski veriler atılır.
+/// Simple FIFO for the microphone: the audio thread writes, the network thread reads 5 ms blocks.
+/// To keep latency from building up, the oldest data beyond `maxSamples` is dropped.
 final class SampleFIFO {
     private let lock = UnfairLock()
     private let ring: UnsafeMutablePointer<Float>
@@ -190,7 +190,7 @@ final class SampleFIFO {
         }
     }
 
-    /// Yeterli veri varsa `n` örnek okur ve true döner.
+    /// Reads `n` samples and returns true if enough data is available.
     func read(into dst: UnsafeMutablePointer<Float>, count n: Int) -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -204,7 +204,7 @@ final class SampleFIFO {
     }
 }
 
-/// Akış halinde doğrusal örnekleme hızı dönüştürücü (mono).
+/// Streaming linear sample-rate converter (mono).
 final class LinearResampler {
     private let step: Double
     private var prev: Float = 0
@@ -216,7 +216,7 @@ final class LinearResampler {
 
     func maxOutput(_ inFrames: Int) -> Int { Int((Double(inFrames) / step).rounded(.up)) + 2 }
 
-    /// Girdi kavramsal olarak [önceki örnek, x0, x1, ...]; `pos` bu dizideki konumdur.
+    /// The input is conceptually [previous sample, x0, x1, ...]; `pos` is the position in that sequence.
     func process(_ input: UnsafePointer<Float>, count n: Int, into output: UnsafeMutablePointer<Float>) -> Int {
         guard n > 0 else { return 0 }
         var o = 0

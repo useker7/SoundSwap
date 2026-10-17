@@ -5,8 +5,8 @@ using NAudio.Wave.SampleProviders;
 namespace SoundSwap;
 
 /// <summary>
-/// Telefondan gelen mikrofon sesini bir çıkış cihazına çalar. Bu cihaz sanal kablonun girişi
-/// olmalı (ör. "CABLE Input"); Windows'ta "CABLE Output" mikrofon olarak görünür.
+/// Plays the microphone audio from the phone into an output device. That device should be the
+/// virtual cable's input (e.g. "CABLE Input"); Windows then shows "CABLE Output" as a microphone.
 /// </summary>
 sealed class MicOutput : IDisposable
 {

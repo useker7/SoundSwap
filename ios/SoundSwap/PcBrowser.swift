@@ -1,9 +1,9 @@
 import Foundation
 import Network
 
-/// Yerel ağdaki SoundSwap bilgisayarlarını Bonjour ("_soundswap._udp") ile bulur ve IPv4 adreslerini çözer.
-/// Windows uygulaması kendini bu servis adıyla duyurur. (iOS'ta UDP yayınıyla arama özel izin gerektirdiği için
-/// yalnızca Bonjour kullanılır.)
+/// Finds SoundSwap PCs on the local network via Bonjour ("_soundswap._udp") and resolves their IPv4 addresses.
+/// The Windows app advertises itself under this service name. (Only Bonjour is used, because UDP broadcast
+/// discovery on iOS requires a special entitlement.)
 final class PcBrowser: ObservableObject {
     struct Pc: Identifiable, Equatable {
         let name: String
@@ -17,7 +17,7 @@ final class PcBrowser: ObservableObject {
 
     private let queue = DispatchQueue(label: "soundswap.browser")
     private var browser: NWBrowser?
-    // Aşağıdakiler yalnızca `queue` üzerinde kullanılır.
+    // The following are only used on `queue`.
     private var resolving: [String: NWConnection] = [:]
     private var resolved: Set<String> = []
 
@@ -31,7 +31,7 @@ final class PcBrowser: ObservableObject {
         }
         b.stateUpdateHandler = { [weak self] state in
             if case .failed = state {
-                // Ağ değiştiğinde tarayıcı düşebilir; kısa süre sonra yeniden başlat.
+                // The browser can fail when the network changes; restart it shortly after.
                 self?.queue.asyncAfter(deadline: .now() + 2) {
                     DispatchQueue.main.async {
                         self?.stop()
@@ -74,7 +74,7 @@ final class PcBrowser: ObservableObject {
         }
     }
 
-    /// Servisi IPv4 adresine çözmek için kısa ömürlü bir UDP bağlantısı açar (veri göndermez).
+    /// Opens a short-lived UDP connection to resolve the service to an IPv4 address (sends no data).
     private func resolve(name: String, endpoint: NWEndpoint) {
         let params = NWParameters.udp
         if let ip = params.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options {

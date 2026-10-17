@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 namespace SoundSwap;
 
 /// <summary>
-/// Bu bilgisayarı yerel ağda DNS-SD/mDNS ("Bonjour") ile "_soundswap._udp" servisi olarak duyurur.
-/// iOS (NWBrowser) ve Android (NsdManager) bu sayede PC'yi IP yazmadan bulur.
-/// Windows 10 1903+ içindeki yerleşik mDNS yanıtlayıcısını kullanır (dnsapi.dll).
+/// Advertises this PC on the local network as the "_soundswap._udp" service via DNS-SD/mDNS ("Bonjour").
+/// This lets iOS (NWBrowser) and Android (NsdManager) find the PC without typing an IP.
+/// Uses the mDNS responder built into Windows 10 1903+ (dnsapi.dll).
 /// </summary>
 sealed class ServiceAdvertiser : IDisposable
 {
@@ -38,10 +38,10 @@ sealed class ServiceAdvertiser : IDisposable
     [DllImport("dnsapi.dll")] static extern uint DnsServiceRegister(IntPtr request, IntPtr cancel);
     [DllImport("dnsapi.dll")] static extern uint DnsServiceDeRegister(IntPtr request, IntPtr cancel);
 
-    readonly RegisterComplete _callback; // GC'den korumak için alan olarak tutulur
+    readonly RegisterComplete _callback; // kept in a field so the GC doesn't collect it
     IntPtr _request;
 
-    /// <summary>0 = başarılı, null = henüz yanıt yok, diğer = Windows hata kodu.</summary>
+    /// <summary>0 = success, null = no reply yet, other = Windows error code.</summary>
     public uint? Status { get; private set; }
 
     public ServiceAdvertiser(ushort port)
@@ -77,8 +77,8 @@ sealed class ServiceAdvertiser : IDisposable
     public void Dispose()
     {
         if (_request == IntPtr.Zero) return;
-        // Kayıt süreç ölünce de otomatik silinir; burada açıkça kaldırıyoruz.
-        // İstek bloğu tamamlanma geri çağrısında kullanılabileceği için serbest bırakılmaz.
+        // The registration is also removed automatically when the process dies; here we remove it explicitly.
+        // The request block is not freed because the completion callback may still use it.
         DnsServiceDeRegister(_request, IntPtr.Zero);
         _request = IntPtr.Zero;
     }

@@ -6,9 +6,9 @@ using NAudio.CoreAudioApi;
 namespace SoundSwap;
 
 /// <summary>
-/// UDP sunucusu. Telefon HELLO gönderdikçe onu "bağlı istemci" kabul eder, PC sesini ona yollar
-/// ve ondan gelen mikrofon paketlerini sanal mikrofona çalar. Tek seferde bir telefon.
-/// Ses kaynağı ve mikrofon çıkışı çalışırken değiştirilebilir.
+/// UDP server. While the phone keeps sending HELLO it is treated as the connected client: PC audio is sent to it
+/// and its microphone packets are played into the virtual microphone. One phone at a time.
+/// The audio source and microphone output can be changed while running.
 /// </summary>
 sealed class AudioServer : IDisposable
 {
@@ -43,7 +43,7 @@ sealed class AudioServer : IDisposable
     public AudioServer()
     {
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        // Windows: karşı taraf kapanınca gelen ICMP "port unreachable" yüzünden ReceiveFrom patlamasın.
+        // Windows: keep ReceiveFrom from throwing on the ICMP "port unreachable" sent when the peer goes away.
         _socket.IOControl(unchecked((int)0x9800000C), new byte[4], null);
         _socket.EnableBroadcast = true;
         _socket.ReceiveTimeout = 500;
@@ -69,7 +69,7 @@ sealed class AudioServer : IDisposable
 
     public int MicBufferMs { set { var m = _mic; if (m != null) m.TargetMs = value; } }
 
-    /// <summary>Telefona gidecek sesin yakalanacağı çıkış cihazı; null = gönderme.</summary>
+    /// <summary>Output device captured and sent to the phone; null = don't send.</summary>
     public void SetSource(string? deviceId)
     {
         lock (_configLock)
@@ -86,7 +86,7 @@ sealed class AudioServer : IDisposable
         }
     }
 
-    /// <summary>Telefon mikrofonunun çalınacağı (sanal mikrofona giden) cihaz; null = kullanma.</summary>
+    /// <summary>Device the phone microphone is played into (feeds the virtual microphone); null = unused.</summary>
     public void SetMicOutput(string? deviceId, int bufferMs)
     {
         lock (_configLock)
@@ -185,7 +185,7 @@ sealed class AudioServer : IDisposable
                     if (c.HasMicSeq)
                     {
                         int diff = (int)(seq - c.LastMicSeq);
-                        if (diff <= 0 && diff > -1000) break; // geç / yinelenen paket
+                        if (diff <= 0 && diff > -1000) break; // late / duplicate packet
                         if (diff > 1) MicPacketsLost += diff - 1;
                     }
                     c.LastMicSeq = seq;

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <!-- Renkler Theme.cs tarafından açık/koyu temaya göre doldurulur (DynamicResource). -->
+        <!-- Colors are filled in by Theme.cs for the light/dark theme (DynamicResource). -->
         <SolidColorBrush x:Key="BgBrush" Color="#F3F4F6" />
         <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="LineBrush" Color="#E5E7EB" />
@@ -65,7 +65,7 @@
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
-        <!-- Windows 11 tarzı aç/kapa anahtarı -->
+        <!-- Windows 11 style toggle switch -->
         <Style x:Key="Switch" TargetType="CheckBox">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -116,7 +116,7 @@
             </Setter>
         </Style>
 
-        <!-- Ses seviyesi göstergesi -->
+        <!-- Audio level meter -->
         <Style x:Key="Meter" TargetType="ProgressBar">
             <Setter Property="Height" Value="4" />
             <Setter Property="Maximum" Value="1" />
@@ -133,7 +133,7 @@
             </Setter>
         </Style>
 
-        <!-- Sade kaydırıcı -->
+        <!-- Minimal slider -->
         <Style x:Key="SliderFill" TargetType="RepeatButton">
             <Setter Property="Focusable" Value="False" />
             <Setter Property="IsTabStop" Value="False" />
@@ -198,7 +198,7 @@
             </Setter>
         </Style>
 
-        <!-- Sade açılır liste -->
+        <!-- Minimal combo box -->
         <Style x:Key="FlatComboItem" TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
             <Setter Property="Template">
@@ -266,7 +266,7 @@
             </Setter>
         </Style>
 
-        <!-- Ana eylem düğmesi -->
+        <!-- Primary action button -->
         <Style x:Key="Primary" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="White" />
@@ -295,7 +295,7 @@
             </Setter>
         </Style>
 
-        <!-- Metin bağlantısı gibi görünen düğme -->
+        <!-- Button styled as a text link -->
         <Style x:Key="Link" TargetType="Button">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />

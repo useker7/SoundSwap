@@ -4,8 +4,8 @@ using NAudio.CoreAudioApi.Interfaces;
 namespace SoundSwap;
 
 /// <summary>
-/// Windows ses cihazı değişikliklerini (varsayılan çıkış değişti, cihaz takıldı/çıkarıldı) dinler
-/// ve olayları oluşturulduğu (arayüz) iş parçacığında yayınlar.
+/// Listens for Windows audio device changes (default output changed, device plugged in/removed)
+/// and raises the events on the (UI) thread it was created on.
 /// </summary>
 sealed class DeviceWatcher : IMMNotificationClient, IDisposable
 {

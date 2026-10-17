@@ -23,7 +23,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            // Kişisel kullanım için debug anahtarıyla imzalanır; mağazaya koyacaksanız kendi anahtarınızı tanımlayın.
+            // Signed with the debug key for personal use; define your own key if you publish to a store.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

@@ -47,7 +47,7 @@ public partial class MainWindow : Window
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse && screenshotPath != null)
         {
-            // Tasarım kontrolü: başka bir kopya çalışırken de pencereyi çiz.
+            // Design check: draw the window even while another instance is running.
         }
         catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
         {
@@ -57,7 +57,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        try { _advertiser = new ServiceAdvertiser(Protocol.Port); } catch { /* eski Windows: yalnızca yayınla bulma */ }
+        try { _advertiser = new ServiceAdvertiser(Protocol.Port); } catch { /* older Windows: broadcast discovery only */ }
 
         _watcher = new DeviceWatcher(_enumerator);
         _watcher.DefaultOutputChanged += UpdateSource;
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
 
-        // Tasarım kontrolü: sanal mikrofon kurulum görünümünü bu bilgisayarda da önizle.
+        // Design check: preview the virtual microphone setup view on this PC too.
         if (_screenshotPath != null && Environment.GetCommandLineArgs().Contains("--preview-mic-setup"))
         {
             SetMicText("A virtual microphone is needed for the phone mic to show up in apps like Discord or Zoom.", "WarnBrush");
@@ -124,9 +124,9 @@ public partial class MainWindow : Window
         if (!startHidden || _screenshotPath != null) Show();
     }
 
-    // ---- Ses yönlendirme ----
+    // ---- Audio routing ----
 
-    /// <summary>Telefona gidecek ses her zaman Windows'un o anki varsayılan çıkışından alınır.</summary>
+    /// <summary>Audio sent to the phone always comes from Windows' current default output.</summary>
     void UpdateSource()
     {
         string? id = null;
@@ -146,7 +146,7 @@ public partial class MainWindow : Window
         string? want = SendSwitch.IsChecked == true ? id : null;
         if (_server != null && want != _sourceId)
         {
-            ApplyMute(false); // eski cihazın sessiz durumunu geri ver
+            ApplyMute(false); // restore the previous device's mute state
             _sourceId = want;
             _server.SetSource(want);
             _muteDevice?.Dispose();
@@ -321,7 +321,7 @@ public partial class MainWindow : Window
         _settings.Save();
     }
 
-    // ---- Durum ----
+    // ---- Status ----
 
     void Tick()
     {
@@ -382,7 +382,7 @@ public partial class MainWindow : Window
                 nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
             var props = nic.GetIPProperties();
             if (props.GatewayAddresses.Count == 0 && !nic.Description.Contains("NDIS", StringComparison.OrdinalIgnoreCase))
-                continue; // sanal adaptörleri (Hyper-V, VPN vb.) ele
+                continue; // skip virtual adapters (Hyper-V, VPN, etc.)
             foreach (var addr in props.UnicastAddresses)
                 if (addr.Address.AddressFamily == AddressFamily.InterNetwork)
                     list.Add(addr.Address.ToString());
@@ -390,7 +390,7 @@ public partial class MainWindow : Window
         return list;
     }
 
-    // ---- Sistem tepsisi ----
+    // ---- System tray ----
 
     void SetupTray()
     {
@@ -425,7 +425,7 @@ public partial class MainWindow : Window
     {
         if (!_exiting)
         {
-            // Kapat düğmesi uygulamayı kapatmaz; tepsiye küçültür. Çıkış: tepsi menüsü.
+            // The close button doesn't quit the app; it minimizes to the tray. Exit via the tray menu.
             e.Cancel = true;
             Hide();
             if (!_settings.TrayHintShown)
@@ -454,8 +454,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Ekran görüntüsü modu: bu bilgisayara özgü bilgiler (ad, IP, yerelleştirilmiş aygıt adları)
-    /// paylaşılan görsellere sızmasın diye örnek değerlerle değiştirilir.
+    /// Screenshot mode: details specific to this PC (name, IP, localized device names)
+    /// are replaced with sample values so they don't leak into shared images.
     /// </summary>
     void ApplyScreenshotDemoValues()
     {

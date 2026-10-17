@@ -16,7 +16,7 @@
 
     <StackPanel x:Name="Root" Margin="20,18,20,20">
 
-        <!-- Başlık -->
+        <!-- Header -->
         <Grid Margin="2,0,0,18">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -35,7 +35,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- Bağlantı durumu -->
+        <!-- Connection status -->
         <Border Style="{StaticResource Card}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -54,7 +54,7 @@
             </Grid>
         </Border>
 
-        <!-- Ses yönleri -->
+        <!-- Audio directions -->
         <Border Style="{StaticResource Card}" Margin="0,12,0,0">
             <StackPanel>
                 <Grid>
@@ -99,7 +99,7 @@
             </StackPanel>
         </Border>
 
-        <!-- Ayarlar -->
+        <!-- Settings -->
         <Border Style="{StaticResource Card}" Margin="0,12,0,0">
             <StackPanel>
                 <Grid>
@@ -149,7 +149,7 @@
             </StackPanel>
         </Border>
 
-        <!-- Alt bilgi -->
+        <!-- Footer -->
         <Grid Margin="4,14,4,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />

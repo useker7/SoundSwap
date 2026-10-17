@@ -1,12 +1,12 @@
 import Foundation
 
-/// SoundSwap UDP protokolü — Windows ve Android tarafıyla aynı (bkz. README).
+/// SoundSwap UDP protocol — same as the Windows and Android side (see README).
 enum SSProtocol {
     static let port: UInt16 = 50505
     static let version: UInt8 = 1
     static let headerSize = 8
     static let sampleRate: Double = 48000
-    /// Mikrofon paket boyu: 5 ms.
+    /// Microphone packet length: 5 ms.
     static let micFrameSamples = 240
 
     static let flagWantsPcAudio: UInt8 = 1

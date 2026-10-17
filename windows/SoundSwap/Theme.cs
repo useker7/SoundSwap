@@ -6,7 +6,7 @@ using Microsoft.Win32;
 
 namespace SoundSwap;
 
-/// <summary>Windows'un açık/koyu uygulama temasını izler ve renk kaynaklarını buna göre ayarlar.</summary>
+/// <summary>Tracks Windows' light/dark app theme and updates the color resources to match.</summary>
 static class Theme
 {
     static readonly Dictionary<string, (string Light, string Dark)> Palette = new()
@@ -27,7 +27,7 @@ static class Theme
         ["SwitchOffBrush"] = ("#6B7280", "#9CA3AF"),
     };
 
-    /// <summary>Komut satırından zorlanan tema (test için); null = Windows ayarı.</summary>
+    /// <summary>Theme forced from the command line (for testing); null = Windows setting.</summary>
     public static bool? Forced { get; set; }
 
     public static bool IsDark { get; private set; }
@@ -71,7 +71,7 @@ static class Theme
 
     public static Color Get(string key) => ((SolidColorBrush)Application.Current.Resources[key]).Color;
 
-    /// <summary>Pencere başlık çubuğunu temaya uydurur (Windows 11'de renkli başlık, 10'da koyu mod).</summary>
+    /// <summary>Matches the window title bar to the theme (colored caption on Windows 11, dark mode on 10).</summary>
     public static void StyleTitleBar(Window window)
     {
         var hwnd = new WindowInteropHelper(window).Handle;

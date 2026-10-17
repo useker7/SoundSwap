@@ -1,4 +1,4 @@
-# Xcode projesini üretmek için: brew install xcodegen && cd ios && xcodegen generate
+# To generate the Xcode project: brew install xcodegen && cd ios && xcodegen generate
 name: SoundSwap
 options:
   bundleIdPrefix: com.soundswap

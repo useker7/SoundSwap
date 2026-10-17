@@ -7,7 +7,7 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.SocketTimeoutException
 
-/** Yerel ağda SoundSwap çalıştıran PC'leri UDP yayınıyla bulur. Ana iş parçacığında çağırmayın. */
+/** Finds PCs running SoundSwap on the local network via UDP broadcast. Don't call on the main thread. */
 object Discovery {
     data class Found(val name: String, val address: String) {
         override fun toString() = "$name  ($address)"

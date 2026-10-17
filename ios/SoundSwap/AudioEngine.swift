@@ -1,8 +1,8 @@
 import AVFoundation
 import UIKit
 
-/// PC ile ses alışverişini yapan motor.
-/// Çalma: AVAudioSourceNode jitter tamponundan çeker. Mikrofon: AVAudioSinkNode → 48 kHz → FIFO → UDP.
+/// Engine that exchanges audio with the PC.
+/// Playback: AVAudioSourceNode pulls from the jitter buffer. Microphone: AVAudioSinkNode → 48 kHz → FIFO → UDP.
 final class AudioEngine {
     struct Config {
         var host: String
@@ -10,7 +10,7 @@ final class AudioEngine {
         var sendMic: Bool
         var jitterMs: Int
         var echoCancel: Bool
-        /// Bluetooth kulaklığın mikrofonunu kullan (HFP; ses kalitesi düşer).
+        /// Use the Bluetooth headset's microphone (HFP; lowers audio quality).
         var bluetoothMic: Bool
     }
 
@@ -23,7 +23,7 @@ final class AudioEngine {
 
     private let engine = AVAudioEngine()
     private let jitter: JitterBuffer
-    private let micFifo = SampleFIFO(capacity: 48_000, maxSamples: 48 * 60) // en fazla 60 ms birikir
+    private let micFifo = SampleFIFO(capacity: 48_000, maxSamples: 48 * 60) // at most 60 ms accumulates
     private let micSignal = DispatchSemaphore(value: 0)
     private let threads = DispatchGroup()
     private let deviceName: String
@@ -33,7 +33,7 @@ final class AudioEngine {
     private var observers: [NSObjectProtocol] = []
     private var running = false
 
-    // Ses iş parçacığı için önceden ayrılmış tamponlar
+    // Preallocated buffers for the audio thread
     private static let maxFrames = 8192
     private let playScratch = UnsafeMutablePointer<Float>.allocate(capacity: maxFrames * 2)
     private let micIn = UnsafeMutablePointer<Float>.allocate(capacity: maxFrames)
@@ -41,7 +41,7 @@ final class AudioEngine {
     private var micResampler: LinearResampler?
     private var micStride = 1
 
-    // Arayüz için durum
+    // State for the UI
     private(set) var pcName: String?
     private(set) var error: String?
     private(set) var playPeak: Float = 0
@@ -121,9 +121,9 @@ final class AudioEngine {
         t.start()
     }
 
-    // MARK: - Ses oturumu ve grafiği
+    // MARK: - Audio session and graph
 
-    /// Bluetooth kulaklık mikrofonu (HFP). Xcode 26 SDK'sında `.allowBluetooth` adı `.allowBluetoothHFP` oldu.
+    /// Bluetooth headset microphone (HFP). In the Xcode 26 SDK `.allowBluetooth` was renamed `.allowBluetoothHFP`.
     private static var bluetoothHFP: AVAudioSession.CategoryOptions {
         #if compiler(>=6.2)
         return .allowBluetoothHFP
@@ -177,7 +177,7 @@ final class AudioEngine {
         engine.prepare()
     }
 
-    /// Kulaklık takılıp çıkınca, arama gelince vb. grafiği yeniden kurar.
+    /// Rebuilds the graph when headphones are plugged in or removed, a call comes in, etc.
     private func restartAudio() {
         guard running else { return }
         engine.stop()
@@ -196,7 +196,7 @@ final class AudioEngine {
         }
     }
 
-    // Gerçek zamanlı ses iş parçacığı: bellek ayırma yok.
+    // Real-time audio thread: no allocations.
     private func render(frames n: Int, abl: UnsafeMutablePointer<AudioBufferList>) {
         let list = UnsafeMutableAudioBufferListPointer(abl)
         guard list.count >= 2,
@@ -218,7 +218,7 @@ final class AudioEngine {
         playPeak = max(peak, playPeak * 0.9)
     }
 
-    // Gerçek zamanlı ses iş parçacığı: yalnızca FIFO'ya yazar, ağ işini mikrofon iş parçacığı yapar.
+    // Real-time audio thread: only writes to the FIFO; the microphone thread does the networking.
     private func capture(frames n: Int, abl: UnsafePointer<AudioBufferList>) {
         let list = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: abl))
         guard list.count >= 1, let p = list[0].mData?.assumingMemoryBound(to: Float.self) else { return }
@@ -233,7 +233,7 @@ final class AudioEngine {
         micSignal.signal()
     }
 
-    // MARK: - Ağ
+    // MARK: - Network
 
     private func helloLoop() {
         var flags: UInt8 = 0
@@ -269,7 +269,7 @@ final class AudioEngine {
             case .pcAudio:
                 if hasSeq {
                     let diff = Int32(bitPattern: seq &- lastSeq)
-                    if diff <= 0 && diff > -1000 { continue } // geç kalmış / yinelenen paket
+                    if diff <= 0 && diff > -1000 { continue } // late / duplicate packet
                     if diff > 1 { packetsLost += Int(diff - 1) }
                 }
                 lastSeq = seq

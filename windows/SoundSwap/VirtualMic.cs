@@ -10,9 +10,9 @@ using NAudio.CoreAudioApi.Interfaces;
 namespace SoundSwap;
 
 /// <summary>
-/// Sanal mikrofon: VB-Audio Virtual Cable (bağış usulü, vb-cable.com).
-/// SoundSwap telefon sesini kablonun "oynatma" ucuna çalar; diğer programlar "kayıt" ucunu mikrofon olarak seçer.
-/// Sürücü kurulumu yönetici izni gerektirdiği için ayrı, yükseltilmiş bir SoundSwap süreci yapar.
+/// Virtual microphone: VB-Audio Virtual Cable (donationware, vb-cable.com).
+/// SoundSwap plays the phone audio into the cable's "playback" end; other programs pick the "recording" end as a microphone.
+/// Installing the driver needs admin rights, so a separate, elevated SoundSwap process does it.
 /// </summary>
 static class VirtualMic
 {
@@ -20,7 +20,7 @@ static class VirtualMic
     public const string MicName = "SoundSwap Microphone";
     public const string FeedName = "SoundSwap Microphone Feed";
     const string DownloadUrl = "https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip";
-    const string TrustedSigner = "BUREL VINCENT"; // VB-Audio Software'in kod imzalama sertifikası
+    const string TrustedSigner = "BUREL VINCENT"; // VB-Audio Software's code-signing certificate
 
     public const string InstallArg = "--vmic-install";
 
@@ -32,7 +32,7 @@ static class VirtualMic
         catch { return false; }
     }
 
-    /// <summary>Kablonun stereo girişi (çok kanallı "CABLE In 16ch" ucu tercih edilmez).</summary>
+    /// <summary>The cable's stereo input (the multichannel "CABLE In 16ch" endpoint is not preferred).</summary>
     public static MMDevice? FindPlayback(MMDeviceEnumerator en) =>
         en.EnumerateAudioEndPoints(DataFlow.Render, DeviceState.Active)
             .Where(IsCable)
@@ -42,7 +42,7 @@ static class VirtualMic
     public static MMDevice? FindRecording(MMDeviceEnumerator en) =>
         en.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active).FirstOrDefault(IsCable);
 
-    /// <summary>Windows'ta görünen kısa ad (ör. "CABLE Output" ya da "SoundSwap Microphone").</summary>
+    /// <summary>Short name shown in Windows (e.g. "CABLE Output" or "SoundSwap Microphone").</summary>
     public static string ShortName(MMDevice d)
     {
         try { return d.Properties[PropertyKeys.PKEY_Device_DeviceDesc].Value as string ?? d.FriendlyName; }
@@ -52,9 +52,9 @@ static class VirtualMic
     public static bool IsRenamed(MMDeviceEnumerator en) =>
         FindRecording(en) is { } r && ShortName(r) == MicName;
 
-    // ---- Ana (normal yetkili) süreç tarafı ----
+    // ---- Main (non-elevated) process side ----
 
-    /// <summary>Sürücüyü indirir ve yükseltilmiş yardımcı süreçle kurar.</summary>
+    /// <summary>Downloads the driver and installs it via the elevated helper process.</summary>
     public static async Task<Result> InstallAsync(IProgress<string> progress)
     {
         string dir = Path.Combine(Path.GetTempPath(), "SoundSwap", "vbcable");
@@ -75,7 +75,7 @@ static class VirtualMic
         return await RunElevatedAsync($"{InstallArg} \"{dir}\"");
     }
 
-    /// <summary>Yeniden adlandırma yönetici izni gerektirmez (Ses ayarlarındaki "Yeniden adlandır" gibi).</summary>
+    /// <summary>Renaming needs no admin rights (same as "Rename" in Sound settings).</summary>
     public static Task<Result> RenameAsync() => Task.Run(RunRename);
 
     static async Task<Result> RunElevatedAsync(string args)
@@ -83,13 +83,13 @@ static class VirtualMic
         var psi = new ProcessStartInfo(Environment.ProcessPath!, args) { UseShellExecute = true, Verb = "runas" };
         Process? p;
         try { p = Process.Start(psi); }
-        catch (System.ComponentModel.Win32Exception) { return Result.Cancelled; } // UAC reddedildi
+        catch (System.ComponentModel.Win32Exception) { return Result.Cancelled; } // UAC declined
         if (p == null) return Result.SetupFailed;
         await p.WaitForExitAsync();
         return (Result)p.ExitCode;
     }
 
-    // ---- Yükseltilmiş yardımcı süreç tarafı ----
+    // ---- Elevated helper process side ----
 
     public static Result RunInstall(string dir)
     {
@@ -97,13 +97,13 @@ static class VirtualMic
         if (!File.Exists(setup)) return Result.SetupFailed;
         if (!IsTrusted(setup)) return Result.BadSignature;
 
-        // -i: kur, -h: arayüzü gizle. Windows yine de sürücü onayı penceresini gösterir.
+        // -i: install, -h: hide UI. Windows still shows the driver approval dialog.
         using (var p = Process.Start(new ProcessStartInfo(setup, "-i -h") { UseShellExecute = false, WorkingDirectory = dir }))
         {
             if (p == null || !p.WaitForExit(TimeSpan.FromMinutes(3))) return Result.SetupFailed;
         }
 
-        // Uç noktaların Windows'ta belirmesi birkaç saniye sürebilir.
+        // The endpoints can take a few seconds to appear in Windows.
         for (int i = 0; i < 40; i++)
         {
             using var en = new MMDeviceEnumerator();
@@ -131,7 +131,7 @@ static class VirtualMic
         }
     }
 
-    /// <summary>Windows Ses ayarlarındaki "Yeniden adlandır" ile aynı özelliği (PKEY_Device_DeviceDesc) yazar.</summary>
+    /// <summary>Writes the same property as "Rename" in Windows Sound settings (PKEY_Device_DeviceDesc).</summary>
     static void SetShortName(MMDevice device, string name)
     {
         device.GetPropertyInformation(StorageAccessMode.ReadWrite);
@@ -147,7 +147,7 @@ static class VirtualMic
         }
     }
 
-    /// <summary>Dosyanın Authenticode imzası geçerli ve VB-Audio'ya ait mi?</summary>
+    /// <summary>Is the file's Authenticode signature valid and does it belong to VB-Audio?</summary>
     static bool IsTrusted(string path)
     {
         if (WinVerifyTrustFile(path) != 0) return false;

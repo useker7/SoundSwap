@@ -1,11 +1,11 @@
 namespace SoundSwap;
 
 /// <summary>
-/// Ağdan gelen sesi tamponlayan halka tampon.
-/// - Başta hedef seviyeye kadar doldurur (priming), sonra çalar.
-/// - Boşalırsa sessizlik verir ve yeniden doldurur.
-/// - İki cihazın saatleri arasındaki kaymayı (drift) telafi etmek için, son 0,5 sn içindeki
-///   en düşük doluluk hedefin belirgin üstündeyse fazlalığı atar. Böylece gecikme zamanla büyümez.
+/// Ring buffer for audio arriving from the network.
+/// - Fills up to the target level first (priming), then plays.
+/// - On underrun it outputs silence and primes again.
+/// - To compensate for clock drift between the two devices, if the lowest fill level in the last 0.5 s
+///   is clearly above the target, the excess is dropped. This keeps latency from growing over time.
 /// </summary>
 sealed class JitterBuffer
 {
@@ -16,7 +16,7 @@ sealed class JitterBuffer
     readonly int _slackFrames;
     readonly int _sampleRate;
     int _readPos;
-    int _count; // örnek (sample) cinsinden
+    int _count; // in samples
     bool _priming = true;
     int _targetFrames;
     int _windowMin = int.MaxValue;
@@ -68,7 +68,7 @@ sealed class JitterBuffer
         }
     }
 
-    /// <summary>Hedefi her zaman tamamen doldurur (eksik kısım sessizlik).</summary>
+    /// <summary>Always fills the destination completely (any shortfall is silence).</summary>
     public void Read(Span<float> dest)
     {
         lock (_lock)

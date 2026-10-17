@@ -2,11 +2,11 @@ import AVFoundation
 import SwiftUI
 
 extension Color {
-    /// Windows ve Android uygulamasıyla aynı marka rengi (#2563EB).
+    /// Same brand color as the Windows and Android apps (#2563EB).
     static let brand = Color(red: 0x25 / 255, green: 0x63 / 255, blue: 0xEB / 255)
 }
 
-/// Motoru yönetir ve arayüz için durumu 10 kez/sn yeniler.
+/// Manages the engine and refreshes its state for the UI 10 times per second.
 final class EngineModel: ObservableObject {
     @Published private(set) var running = false
     @Published private(set) var connected = false
@@ -38,7 +38,7 @@ final class EngineModel: ObservableObject {
         }
     }
 
-    /// Akış sürerken değişen ayarları uygular (motor yeni ayarlarla yeniden başlar).
+    /// Applies settings changed while streaming (the engine restarts with the new settings).
     func restartIfRunning(_ config: AudioEngine.Config) {
         guard let e = engine else { return }
         var c = config
@@ -199,7 +199,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Bölümler
+    // MARK: - Sections
 
     private var computersSection: some View {
         Section {
@@ -284,7 +284,7 @@ struct ContentView: View {
         .padding(.vertical, 2)
     }
 
-    // MARK: - Eylemler
+    // MARK: - Actions
 
     private func config(host: String) -> AudioEngine.Config {
         AudioEngine.Config(
@@ -305,9 +305,9 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Yapı taşları
+// MARK: - Building blocks
 
-/// SoundSwap logosu — assets/logo.svg ile aynı geometri.
+/// SoundSwap logo — same geometry as assets/logo.svg.
 struct LogoView: View {
     var size: CGFloat
 

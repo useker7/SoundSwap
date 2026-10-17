@@ -14,8 +14,8 @@ import android.os.IBinder
 import android.os.PowerManager
 
 /**
- * Ekran kapalıyken / uygulama arka plandayken de akışın sürmesi için ön plan servisi.
- * Wi-Fi güç tasarrufu gecikmeyi ciddi şekilde artırdığı için düşük gecikmeli Wi-Fi kilidi alır.
+ * Foreground service that keeps streaming while the screen is off / the app is in the background.
+ * Holds a low-latency Wi-Fi lock, since Wi-Fi power saving adds a lot of latency.
  */
 class StreamService : Service() {
 

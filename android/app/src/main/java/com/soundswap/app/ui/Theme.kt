@@ -19,7 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 
-/** Windows uygulamasıyla aynı palet. */
+/** Same palette as the Windows app. */
 @Immutable
 data class Extra(val good: Color, val warn: Color, val accentSoft: Color, val track: Color)
 
@@ -96,7 +96,7 @@ fun SoundSwapTheme(content: @Composable () -> Unit) {
     }
 }
 
-/** SoundSwap logosu — assets/logo.svg ile aynı geometri. */
+/** SoundSwap logo — same geometry as assets/logo.svg. */
 @Composable
 fun Logo(size: Dp) {
     Canvas(Modifier.size(size)) {

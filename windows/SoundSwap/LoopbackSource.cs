@@ -5,10 +5,10 @@ using NAudio.Wave;
 namespace SoundSwap;
 
 /// <summary>
-/// Bir çıkış cihazında çalan her şeyi WASAPI loopback ile yakalar, 48 kHz stereo float'a çevirir
-/// ve 5 ms'lik (240 kare) bloklar halinde teslim eder.
-/// NAudio'nun hazır WasapiLoopbackCapture'ı 100 ms tampon / 50 ms uyku kullandığı için
-/// burada 1 ms aralıkla yoklayan kendi döngümüz var.
+/// Captures everything playing on an output device via WASAPI loopback, converts it to 48 kHz stereo float
+/// and delivers it in 5 ms (240-frame) blocks.
+/// NAudio's built-in WasapiLoopbackCapture uses a 100 ms buffer / 50 ms sleep, so
+/// we run our own loop that polls every 1 ms.
 /// </summary>
 sealed class LoopbackSource : IDisposable
 {
@@ -23,7 +23,7 @@ sealed class LoopbackSource : IDisposable
     WasapiOut? _silence;
 
     readonly float[] _frame = new float[Protocol.FrameSamples * 2];
-    int _frameFill; // örnek cinsinden
+    int _frameFill; // in samples
 
     public volatile float Peak;
     public volatile string? Error;
@@ -50,8 +50,8 @@ sealed class LoopbackSource : IDisposable
             using var enumerator = new MMDeviceEnumerator();
             var device = enumerator.GetDevice(_deviceId);
 
-            // Hiçbir şey çalmazken loopback veri üretmez; cihazı sessizlikle sürekli açık tutarak
-            // akışın kesintisiz ve cihaz saatiyle düzenli gelmesini sağlıyoruz.
+            // Loopback produces no data while nothing is playing; keeping the device open with silence
+            // keeps the stream continuous and paced by the device clock.
             var mix = device.AudioClient.MixFormat;
             _silence = new WasapiOut(device, AudioClientShareMode.Shared, false, 50);
             _silence.Init(new SilenceProvider(WaveFormat.CreateIeeeFloatWaveFormat(mix.SampleRate, mix.Channels)));
@@ -148,7 +148,7 @@ sealed class LoopbackSource : IDisposable
         };
     }
 
-    /// <summary>Herhangi bir kanal düzenini stereo float'a indirger (5.1/7.1 için basit downmix).</summary>
+    /// <summary>Reduces any channel layout to stereo float (simple downmix for 5.1/7.1).</summary>
     static unsafe void ToStereo(IntPtr data, int frames, int channels, SampleKind kind, Span<float> dest)
     {
         const float k = 0.7071f;
@@ -194,7 +194,7 @@ sealed class LoopbackSource : IDisposable
     [DllImport("winmm.dll")] static extern uint timeEndPeriod(uint ms);
 }
 
-/// <summary>Akış halinde doğrusal örnekleme hızı dönüştürücü (interleaved).</summary>
+/// <summary>Streaming linear sample-rate converter (interleaved).</summary>
 sealed class LinearResampler
 {
     readonly int _channels;
@@ -211,7 +211,7 @@ sealed class LinearResampler
 
     public int MaxOutput(int inFrames) => (int)Math.Ceiling(inFrames / _step) + 2;
 
-    /// <summary>Girdi dizisi kavramsal olarak [önceki kare, x0, x1, ...]; _pos bu dizide konumdur.</summary>
+    /// <summary>The input is conceptually [previous frame, x0, x1, ...]; _pos is the position in that sequence.</summary>
     public int Process(ReadOnlySpan<float> input, Span<float> output)
     {
         int ch = _channels;
