@@ -44,7 +44,7 @@ flowchart LR
         LB["WASAPI loopback capture<br/>(default output device)"] --> RS["Resample to 48 kHz stereo<br/>5 ms frames"]
         SRV["UDP server :50505"]
         JBW["Jitter buffer"] --> VC["VB-Cable playback endpoint"]
-        VC --> MIC["&quot;SoundSwap Microphone&quot;<br/>(recording endpoint)"]
+        VC --> MIC["SoundSwap Microphone<br/>(recording endpoint)"]
         MDNS["mDNS advertiser<br/>DnsServiceRegister"]
     end
 
