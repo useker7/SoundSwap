@@ -149,6 +149,7 @@ private fun SoundSwapScreen(discovery: PcDiscovery) {
     val lastPc = remember { mutableStateOf(prefs.getString("host", "") ?: "") }
     var snap by remember { mutableStateOf(EngineSnapshot.of(StreamService.engine)) }
     var showManual by remember { mutableStateOf(false) }
+    var showUsbHelp by remember { mutableStateOf(false) }
     var pendingHost by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
@@ -237,8 +238,10 @@ private fun SoundSwapScreen(discovery: PcDiscovery) {
                 ComputerList(
                     pcs = discovery.pcs,
                     lastHost = lastPc.value,
+                    usbTethering = discovery.usbTethering.value,
                     onSelect = { connect(it) },
                     onManual = { showManual = true },
+                    onUsbHelp = { showUsbHelp = true },
                 )
             }
 
@@ -321,6 +324,12 @@ private fun SoundSwapScreen(discovery: PcDiscovery) {
             onConnect = { showManual = false; connect(it) },
         )
     }
+    if (showUsbHelp) {
+        UsbHelpDialog(
+            onDismiss = { showUsbHelp = false },
+            onOpenSettings = { showUsbHelp = false; UsbLink.openTetheringSettings(context) },
+        )
+    }
 }
 
 // ---- Sections ----
@@ -344,8 +353,10 @@ private fun Header() {
 private fun ComputerList(
     pcs: List<PcDiscovery.Pc>,
     lastHost: String,
+    usbTethering: Boolean,
     onSelect: (String) -> Unit,
     onManual: () -> Unit,
+    onUsbHelp: () -> Unit,
 ) {
     SectionTitle("PCs")
     AppCard(contentPadding = 0.dp) {
@@ -356,13 +367,18 @@ private fun ComputerList(
                 Column {
                     Text("Looking for PCs…", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "SoundSwap must be running on the PC, and the PC must be on the same network as the phone.",
+                        if (usbTethering) "USB tethering is on. Waiting for SoundSwap on the PC…"
+                        else "SoundSwap must be running on the PC, and the PC must be on the same network as the phone.",
                         style = Caption, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         } else {
-            val sorted = pcs.sortedWith(compareByDescending<PcDiscovery.Pc> { it.address == lastHost }.thenBy { it.name.lowercase() })
+            val sorted = pcs.sortedWith(
+                compareByDescending<PcDiscovery.Pc> { it.viaUsb }
+                    .thenByDescending { it.address == lastHost }
+                    .thenBy { it.name.lowercase() }
+            )
             sorted.forEachIndexed { i, pc ->
                 if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
@@ -375,7 +391,16 @@ private fun ComputerList(
                     IconBadge(R.drawable.ic_computer)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(pc.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                pc.name, style = MaterialTheme.typography.titleMedium, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                            )
+                            if (pc.viaUsb) {
+                                Spacer(Modifier.width(8.dp))
+                                UsbBadge()
+                            }
+                        }
                         Text(
                             if (pc.address == lastHost) "${pc.address} · Last connected" else pc.address,
                             style = Caption, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -386,17 +411,64 @@ private fun ComputerList(
             }
         }
     }
-    TextButton(onClick = onManual, modifier = Modifier.padding(start = 4.dp)) {
-        Text("Enter address manually")
+    Row {
+        TextButton(onClick = onManual, modifier = Modifier.padding(start = 4.dp)) {
+            Text("Enter address manually")
+        }
+        if (!usbTethering) {
+            TextButton(onClick = onUsbHelp) { Text("Connect with USB") }
+        }
     }
+}
+
+@Composable
+private fun UsbBadge() {
+    Text(
+        "USB",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(LocalExtra.current.accentSoft)
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+    )
+}
+
+@Composable
+private fun UsbHelpDialog(onDismiss: () -> Unit, onOpenSettings: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Connect with USB") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "A USB cable gives the lowest and steadiest latency.",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text("1.  Connect the phone to the PC with a USB cable.", style = MaterialTheme.typography.bodyMedium)
+                Text("2.  Turn on “USB tethering” in the phone settings.", style = MaterialTheme.typography.bodyMedium)
+                Text("3.  Come back here: the PC appears with a USB label.", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "While USB tethering is on, Windows may use the phone's mobile data for internet access.",
+                    style = Caption, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onOpenSettings) { Text("Open settings") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 @Composable
 private fun ConnectionCard(snap: EngineSnapshot, onDisconnect: () -> Unit) {
     val extra = LocalExtra.current
+    val viaUsb = remember(snap.host, snap.connected) { UsbLink.isUsbAddress(snap.host) }
     val (color, title, detail) = when {
         snap.error != null -> Triple(MaterialTheme.colorScheme.error, "Connection problem", snap.error)
-        snap.connected -> Triple(extra.good, snap.pcName ?: snap.host, "Connected · ${snap.host}")
+        snap.connected -> Triple(
+            extra.good, snap.pcName ?: snap.host,
+            if (viaUsb) "Connected via USB · ${snap.host}" else "Connected · ${snap.host}",
+        )
         else -> Triple(extra.warn, "Connecting…", "Trying to reach ${snap.host}")
     }
     SectionTitle("Connection")

@@ -14,6 +14,8 @@ Bilgisayarın sesini telefona aktarır, telefonun mikrofonunu da bilgisayara mik
 
 - **PC → Telefon:** Windows'ta çalan her şey (oyun, müzik, Discord…) telefonun hoparlöründen ya da telefona takılı kulaklıktan çıkar.
 - **Telefon → PC:** Telefonun (veya telefona takılı kulaklığın) mikrofonu Windows'ta normal bir mikrofon gibi görünür.
+- **Aynı anda birden fazla telefon:** En fazla 8 telefon birlikte dinleyebilir; mikrofonları karıştırılarak tek bir *SoundSwap Microphone* olarak verilir.
+- **USB bağlantısı:** Kablo üzerinden (Android *USB tethering*, iPhone *Kişisel Erişim Noktası*) en düşük ve en kararlı gecikme. Uygulamalar USB'yi tanır ve bilgisayarı "USB" etiketiyle en üstte gösterir.
 - **Düşük gecikme:** Sıkıştırmasız 48 kHz PCM, 5 ms'lik UDP paketleri, ayarlanabilir tampon. Wi-Fi'da PC → telefon tipik toplam gecikme **~50–100 ms** (en büyük pay telefonun ses donanımında).
 
 ```
@@ -72,6 +74,7 @@ Bilgisayarın sesini telefona aktarır, telefonun mikrofonunu da bilgisayara mik
    ```
 2. Uygulamayı açın. Aynı ağdaki bilgisayarlar **kendiliğinden listelenir**; bilgisayara dokunun. Gerekirse **Enter address manually** ile PC penceresinin altında yazan IP'yi girebilirsiniz.
 3. Ekran kapalıyken de çalışır (bildirimde **Stop** düğmesi var).
+4. **USB ile:** Telefonu kabloyla PC'ye bağlayın ve *USB tethering*'i açın (uygulamadaki **Connect with USB** düğmesi ilgili ayarı açar). Bilgisayar listede "USB" etiketiyle görünür. Bu sırada Windows interneti telefonun mobil verisi üzerinden kullanabilir.
 
 ### 3. iOS (iPhone / iPad)
 
@@ -91,6 +94,8 @@ Xcode'da *Signing & Capabilities* → Team olarak Apple kimliğinizi seçin, iPh
 
 Uygulamayı açın. İlk açılışta "yerel ağ" iznine **İzin Ver** deyin (bilgisayarları bulmak için gerekli), sonra listede çıkan bilgisayara dokunun. Mikrofon izni ilk bağlantıda istenir. Gerekirse **Enter address manually** ile IP yazılabilir.
 
+**USB ile:** iPhone'u kabloyla bağlayın ve *Ayarlar > Kişisel Erişim Noktası > Başkalarının Katılmasına İzin Ver*'i açın. Windows'ta USB ağ sürücüsü için Apple Devices uygulaması (veya iTunes) kurulu olmalıdır. Kişisel Erişim Noktası, hat paketinizin buna izin vermesini gerektirir.
+
 > Projeyi güncelledikten sonra Mac'te `cd ios && xcodegen generate` komutunu tekrar çalıştırın (uygulama simgesi ve yeni dosyalar projeye eklenir).
 
 ---
@@ -100,7 +105,7 @@ Uygulamayı açın. İlk açılışta "yerel ağ" iznine **İzin Ver** deyin (bi
 | Ne | Neden |
 |---|---|
 | **5 GHz Wi-Fi** (veya PC kabloyla modeme bağlı) | 2.4 GHz'de dalgalanma (jitter) çok daha fazla |
-| **USB bağlantı paylaşımı** (Android: *USB tethering*, iPhone: USB ile *Kişisel Erişim Noktası*) | Kablosuz gecikme tamamen ortadan kalkar. PC penceresinde yeni bir IP görünür (ör. `192.168.42.x` / `172.20.10.x`), telefona onu girin |
+| **USB bağlantı paylaşımı** (Android: *USB tethering*, iPhone: USB ile *Kişisel Erişim Noktası*) | Kablosuz gecikme tamamen ortadan kalkar. Telefon uygulaması USB bağlantısını kendisi bulur ve bilgisayarı "USB" etiketiyle en üstte gösterir |
 | **Kablolu kulaklık** | Bluetooth kulaklıklar kendileri 100–250 ms ekler |
 | **Ses tamponu** ayarı (telefonda ve PC'de) | Düşük = az gecikme. Cızırtı/kesilme olursa 5–10 ms artırın. Wi-Fi'da genelde 20–40 ms iyi çalışır |
 | VB-Cable *Max Latency* | Yukarıdaki kurulum adımına bakın |
@@ -152,13 +157,13 @@ Her paketin 8 baytlık başlığı:
 | 7 `DISCOVER_REPLY` | PC → telefon | PC adı (UTF-8) |
 
 - **Bulma:** PC kendini DNS-SD/mDNS ile `<bilgisayar adı>._soundswap._udp.local` olarak duyurur (SRV: port 50505, TXT: `v=1`). Ayrıca `DISCOVER` yayın paketlerine de yanıt verir.
-- PC, son `HELLO` gönderen telefonu istemci kabul eder (aynı anda tek telefon). 3 sn `HELLO` gelmezse bağlantı düşer.
+- `HELLO` gönderen her telefon istemcidir (en fazla 8). 3 sn `HELLO` gelmezse ya da `BYE` gelirse bağlantı düşer. PC sesi her pakette bir kez kodlanır ve dinleyen tüm telefonlara gönderilir; telefonların mikrofonları her biri kendi jitter tamponuyla karıştırılır.
 - Alıcılar, sıra numarasına göre geç kalmış veya yinelenen paketleri atar.
 - **Jitter tamponu** (üç platformda aynı algoritma): Önce hedef doluluğa kadar doldurur, sonra çalar. Boşalırsa sessizlik verip yeniden doldurur. İki cihazın saatleri arasındaki küçük farkı (drift) dengelemek için, son 0,5 sn'deki en düşük doluluk hedefi 8 ms'den fazla aşarsa fazlalığı atar. Böylece gecikme zamanla büyümez.
 
 ## Sınırlamalar
 
-- Aynı anda tek telefon bağlanabilir.
+- Aynı anda en fazla 8 telefon bağlanabilir.
 - Trafik şifresizdir ve yalnızca yerel ağ / USB bağlantısı için tasarlanmıştır. İnternet üzerinden açmayın.
 - Bant genişliği PC → telefon yönünde ~1,6 Mbit/s, ters yönde ~0,8 Mbit/s (sıkıştırma yok, çünkü sıkıştırma gecikme ekler).
 

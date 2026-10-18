@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -6,20 +7,32 @@ using NAudio.CoreAudioApi;
 namespace SoundSwap;
 
 /// <summary>
-/// UDP server. While the phone keeps sending HELLO it is treated as the connected client: PC audio is sent to it
-/// and its microphone packets are played into the virtual microphone. One phone at a time.
+/// UDP server. Every phone that keeps sending HELLO is a connected client (up to <see cref="MaxClients"/>):
+/// PC audio is sent to all of them, and their microphones are mixed into the virtual microphone.
 /// The audio source and microphone output can be changed while running.
 /// </summary>
 sealed class AudioServer : IDisposable
 {
-    sealed class Client(IPEndPoint endPoint, string name, byte flags)
+    public const int MaxClients = 8;
+
+    /// <summary>Snapshot of a connected phone for the UI.</summary>
+    public sealed record ClientInfo(string Name, IPAddress Address, bool WantsPcAudio, bool SendsMic, bool ViaUsb);
+
+    sealed class Client(IPEndPoint endPoint, string name, byte flags, bool viaUsb)
     {
-        public IPEndPoint EndPoint = endPoint;
-        public string Name = name;
-        public byte Flags = flags;
+        public readonly IPEndPoint EndPoint = endPoint;
+        public readonly bool ViaUsb = viaUsb;
+        public volatile string Name = name;
+        public volatile byte Flags = flags;
         public long LastSeen = Environment.TickCount64;
         public uint LastMicSeq;
         public bool HasMicSeq;
+        // The mic channel belongs to one MicOutput; it is reopened if the output device changes.
+        public MicOutput? MicOwner;
+        public MicMixer.Channel? MicChannel;
+
+        public bool WantsPcAudio => (Flags & Protocol.FlagWantsPcAudio) != 0;
+        public bool SendsMic => (Flags & Protocol.FlagSendsMic) != 0;
     }
 
     static readonly TimeSpan ClientTimeout = TimeSpan.FromSeconds(3);
@@ -29,10 +42,10 @@ sealed class AudioServer : IDisposable
     readonly byte[] _audioPacket = new byte[Protocol.HeaderSize + Protocol.FrameSamples * 2 * 2];
     readonly byte[] _nameBytes = Encoding.UTF8.GetBytes(Environment.MachineName);
     readonly object _configLock = new();
+    readonly ConcurrentDictionary<IPEndPoint, Client> _clients = new();
 
     volatile LoopbackSource? _loopback;
     volatile MicOutput? _mic;
-    volatile Client? _client;
     volatile bool _running = true;
     uint _seq;
 
@@ -47,7 +60,8 @@ sealed class AudioServer : IDisposable
         _socket.IOControl(unchecked((int)0x9800000C), new byte[4], null);
         _socket.EnableBroadcast = true;
         _socket.ReceiveTimeout = 500;
-        _socket.ReceiveBufferSize = 256 * 1024;
+        _socket.ReceiveBufferSize = 512 * 1024;
+        _socket.SendBufferSize = 512 * 1024;
         try { _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.TypeOfService, 0xB8); } catch { }
         _socket.Bind(new IPEndPoint(IPAddress.Any, Protocol.Port));
 
@@ -55,21 +69,25 @@ sealed class AudioServer : IDisposable
         _recvThread.Start();
     }
 
-    public string? ClientName => _client?.Name;
-    public IPAddress? ClientAddress => _client?.EndPoint.Address;
-    public bool IsConnected => _client != null;
-    public bool ClientWantsPcAudio => _client is { } c && (c.Flags & Protocol.FlagWantsPcAudio) != 0;
-    public bool ClientSendsMic => _client is { } c && (c.Flags & Protocol.FlagSendsMic) != 0;
+    public IReadOnlyList<ClientInfo> Clients =>
+        _clients.Values
+            .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
+            .Select(c => new ClientInfo(c.Name, c.EndPoint.Address, c.WantsPcAudio, c.SendsMic, c.ViaUsb))
+            .ToList();
+
+    public bool IsConnected => !_clients.IsEmpty;
+    public bool AnyClientWantsPcAudio => _clients.Values.Any(c => c.WantsPcAudio);
+    public bool AnyClientSendsMic => _clients.Values.Any(c => c.SendsMic);
 
     public float SendPeak => _loopback?.Peak ?? 0;
-    public float MicPeak => _mic?.Peak ?? 0;
-    public double MicBufferedMs => _mic?.Jitter.BufferedMs ?? 0;
-    public long MicUnderruns => _mic?.Jitter.Underruns ?? 0;
+    public float MicPeak => _mic?.Mixer.Peak ?? 0;
+    public double MicBufferedMs => _mic?.Mixer.BufferedMs ?? 0;
+    public long MicUnderruns => _mic?.Mixer.Underruns ?? 0;
     public string? SourceError => _loopback?.Error;
 
-    public int MicBufferMs { set { var m = _mic; if (m != null) m.TargetMs = value; } }
+    public int MicBufferMs { set { var m = _mic; if (m != null) m.Mixer.TargetMs = value; } }
 
-    /// <summary>Output device captured and sent to the phone; null = don't send.</summary>
+    /// <summary>Output device captured and sent to the phones; null = don't send.</summary>
     public void SetSource(string? deviceId)
     {
         lock (_configLock)
@@ -86,7 +104,7 @@ sealed class AudioServer : IDisposable
         }
     }
 
-    /// <summary>Device the phone microphone is played into (feeds the virtual microphone); null = unused.</summary>
+    /// <summary>Device the phone microphones are played into (feeds the virtual microphone); null = unused.</summary>
     public void SetMicOutput(string? deviceId, int bufferMs)
     {
         lock (_configLock)
@@ -104,8 +122,7 @@ sealed class AudioServer : IDisposable
 
     void OnLoopbackFrame(ReadOnlySpan<float> stereo)
     {
-        var c = _client;
-        if (c == null || (c.Flags & Protocol.FlagWantsPcAudio) == 0) return;
+        if (!AnyClientWantsPcAudio) return;
 
         var pkt = _audioPacket;
         Protocol.WriteHeader(pkt, Protocol.PacketType.PcAudio, _seq++);
@@ -116,13 +133,18 @@ sealed class AudioServer : IDisposable
             pkt[o++] = (byte)s;
             pkt[o++] = (byte)(s >> 8);
         }
-        try
+        // The same packet goes to every listening phone; each sees one continuous sequence.
+        foreach (var c in _clients.Values)
         {
-            _socket.SendTo(pkt, 0, o, SocketFlags.None, c.EndPoint);
-            PacketsSent++;
+            if (!c.WantsPcAudio) continue;
+            try
+            {
+                _socket.SendTo(pkt, 0, o, SocketFlags.None, c.EndPoint);
+                PacketsSent++;
+            }
+            catch (SocketException) { }
+            catch (ObjectDisposedException) { return; }
         }
-        catch (SocketException) { }
-        catch (ObjectDisposedException) { }
     }
 
     void ReceiveLoop()
@@ -138,7 +160,7 @@ sealed class AudioServer : IDisposable
             }
             catch (SocketException)
             {
-                CheckTimeout();
+                CheckTimeouts();
                 continue;
             }
             catch (ObjectDisposedException)
@@ -160,18 +182,18 @@ sealed class AudioServer : IDisposable
                 case Protocol.PacketType.Hello:
                 {
                     byte flags = payload.Length > 0 ? payload[0] : (byte)0;
-                    string name = payload.Length > 1 ? Encoding.UTF8.GetString(payload[1..]) : "Telefon";
-                    var c = _client;
-                    if (c == null || !c.EndPoint.Equals(ep))
-                    {
-                        _client = new Client(new IPEndPoint(ep.Address, ep.Port), name, flags);
-                        _mic?.Jitter.Clear();
-                    }
-                    else
+                    string name = payload.Length > 1 ? Encoding.UTF8.GetString(payload[1..]) : "Phone";
+                    if (_clients.TryGetValue(ep, out var c))
                     {
                         c.Flags = flags;
                         c.Name = name;
                         c.LastSeen = Environment.TickCount64;
+                    }
+                    else
+                    {
+                        if (_clients.Count >= MaxClients) break; // full: no ACK, the phone keeps waiting
+                        var key = new IPEndPoint(ep.Address, ep.Port);
+                        _clients[key] = new Client(key, name, flags, LinkInfo.IsViaUsb(ep.Address));
                     }
                     Send(Protocol.PacketType.HelloAck, _nameBytes, ep);
                     break;
@@ -179,8 +201,7 @@ sealed class AudioServer : IDisposable
 
                 case Protocol.PacketType.MicAudio:
                 {
-                    var c = _client;
-                    if (c == null || !c.EndPoint.Equals(ep)) break;
+                    if (!_clients.TryGetValue(ep, out var c)) break;
                     c.LastSeen = Environment.TickCount64;
                     if (c.HasMicSeq)
                     {
@@ -191,23 +212,38 @@ sealed class AudioServer : IDisposable
                     c.LastMicSeq = seq;
                     c.HasMicSeq = true;
                     PacketsReceived++;
-                    _mic?.Push(payload);
+
+                    var mic = _mic;
+                    if (mic == null) break;
+                    if (c.MicOwner != mic)
+                    {
+                        c.MicOwner = mic;
+                        c.MicChannel = mic.Mixer.Open();
+                    }
+                    c.MicChannel!.Push(payload);
                     break;
                 }
 
                 case Protocol.PacketType.Bye:
-                    if (_client?.EndPoint.Equals(ep) == true) _client = null;
+                    Remove(ep);
                     break;
             }
-            CheckTimeout();
+            CheckTimeouts();
         }
     }
 
-    void CheckTimeout()
+    void CheckTimeouts()
     {
-        var c = _client;
-        if (c != null && Environment.TickCount64 - c.LastSeen > ClientTimeout.TotalMilliseconds)
-            _client = null;
+        long now = Environment.TickCount64;
+        foreach (var c in _clients.Values)
+            if (now - c.LastSeen > ClientTimeout.TotalMilliseconds)
+                Remove(c.EndPoint);
+    }
+
+    void Remove(IPEndPoint ep)
+    {
+        if (!_clients.TryRemove(ep, out var c)) return;
+        if (c.MicChannel != null && c.MicOwner == _mic) c.MicOwner!.Mixer.Close(c.MicChannel);
     }
 
     void Send(Protocol.PacketType type, byte[] payload, EndPoint to)
@@ -221,7 +257,7 @@ sealed class AudioServer : IDisposable
     public void Dispose()
     {
         _running = false;
-        _client = null;
+        _clients.Clear();
         SetSource(null);
         _socket.Dispose();
         _recvThread.Join(1000);

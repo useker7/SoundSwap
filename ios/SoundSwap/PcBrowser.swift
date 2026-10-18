@@ -9,6 +9,9 @@ final class PcBrowser: ObservableObject {
         let name: String
         let address: String
         var id: String { name }
+
+        /// Reached through the iPhone's Personal Hotspot (over USB or Wi-Fi): 172.20.10.0/28.
+        var viaHotspot: Bool { address.hasPrefix("172.20.10.") }
     }
 
     static let serviceType = "_soundswap._udp"
@@ -17,9 +20,16 @@ final class PcBrowser: ObservableObject {
 
     private let queue = DispatchQueue(label: "soundswap.browser")
     private var browser: NWBrowser?
-    // The following are only used on `queue`.
+    // The following are only used on `queue`. Keys are raw Bonjour service names.
     private var resolving: [String: NWConnection] = [:]
     private var resolved: Set<String> = []
+
+    /// Bonjour appends "(1)", " (2)"… to a name when it sees a conflict, for example a stale registration
+    /// left behind by a SoundSwap instance that was killed. They are the same PC, so the suffix is dropped.
+    static func displayName(_ serviceName: String) -> String {
+        guard let range = serviceName.range(of: #"\s*\(\d+\)$"#, options: .regularExpression) else { return serviceName }
+        return String(serviceName[..<range.lowerBound])
+    }
 
     func start() {
         guard browser == nil else { return }
@@ -69,8 +79,9 @@ final class PcBrowser: ObservableObject {
             resolving[name] = nil
         }
         resolved = resolved.intersection(names)
+        let visible = Set(names.map(Self.displayName))
         DispatchQueue.main.async {
-            self.pcs.removeAll { !names.contains($0.name) }
+            self.pcs.removeAll { !visible.contains($0.name) }
         }
     }
 
@@ -89,11 +100,8 @@ final class PcBrowser: ObservableObject {
                 if case let .hostPort(host, _)? = connection.currentPath?.remoteEndpoint,
                    let address = Self.ipv4String(host) {
                     self.resolved.insert(name)
-                    DispatchQueue.main.async {
-                        self.pcs.removeAll { $0.name == name }
-                        self.pcs.append(Pc(name: name, address: address))
-                        self.pcs.sort { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                    }
+                    let pc = Pc(name: Self.displayName(name), address: address)
+                    DispatchQueue.main.async { self.add(pc) }
                 }
                 connection.cancel()
                 self.resolving[name] = nil
@@ -104,6 +112,20 @@ final class PcBrowser: ObservableObject {
             }
         }
         connection.start(queue: queue)
+    }
+
+    /// One entry per PC; a Personal Hotspot (USB) address wins over the Wi-Fi one.
+    private func add(_ pc: Pc) {
+        if let i = pcs.firstIndex(where: { $0.name == pc.name }) {
+            if pcs[i].viaHotspot && !pc.viaHotspot { return }
+            pcs[i] = pc
+        } else {
+            pcs.append(pc)
+        }
+        pcs.sort { a, b in
+            if a.viaHotspot != b.viaHotspot { return a.viaHotspot }
+            return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+        }
     }
 
     private static func ipv4String(_ host: NWEndpoint.Host) -> String? {

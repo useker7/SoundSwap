@@ -101,7 +101,7 @@ public partial class MainWindow : Window
             UpdateMic();
         };
 
-        Footer.Text = $"This PC: {Environment.MachineName}  ·  {string.Join(", ", GetLocalIPs())}";
+        UpdateFooter();
 
         UpdateSource();
         UpdateMic();
@@ -331,8 +331,10 @@ public partial class MainWindow : Window
         MicMeter.Value = Meter(s.MicPeak);
         if (_tick++ % 5 != 0) return;
 
-        ApplyMute(MuteSwitch.IsChecked == true && s.IsConnected && s.ClientWantsPcAudio && _sourceId != null);
+        ApplyMute(MuteSwitch.IsChecked == true && s.AnyClientWantsPcAudio && _sourceId != null);
+        if (_tick % 25 == 1) UpdateFooter(); // USB tethering adapters come and go
 
+        var clients = s.Clients;
         string state;
         if (s.SourceError != null)
         {
@@ -340,14 +342,16 @@ public partial class MainWindow : Window
             StatusTitle.Text = "Audio capture failed";
             StatusDetail.Text = s.SourceError;
         }
-        else if (s.IsConnected)
+        else if (clients.Count > 0)
         {
             state = "GoodBrush";
-            StatusTitle.Text = s.ClientName ?? "Phone";
-            var parts = new List<string> { "Connected" };
-            if (s.ClientWantsPcAudio && _sourceId != null) parts.Add("sending audio");
-            if (s.ClientSendsMic && _micId != null) parts.Add("receiving mic");
-            StatusDetail.Text = string.Join(" · ", parts) + $"  ({s.ClientAddress})";
+            StatusTitle.Text = clients.Count == 1 ? clients[0].Name : $"{clients.Count} phones connected";
+            var parts = new List<string>();
+            if (s.AnyClientWantsPcAudio && _sourceId != null) parts.Add("sending audio");
+            if (s.AnyClientSendsMic && _micId != null) parts.Add(clients.Count(c => c.SendsMic) > 1 ? "mixing mics" : "receiving mic");
+            string Describe(AudioServer.ClientInfo c) => $"{(clients.Count > 1 ? c.Name + " " : "")}{(c.ViaUsb ? "USB" : c.Address.ToString())}";
+            StatusDetail.Text = (parts.Count > 0 ? string.Join(" · ", parts) : "Connected") +
+                                "\n" + string.Join("  ·  ", clients.Select(Describe));
         }
         else
         {
@@ -358,10 +362,20 @@ public partial class MainWindow : Window
         StatusDot.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, state);
         StatusHalo.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, state);
 
-        Stats.Text = s.IsConnected && s.ClientSendsMic
+        Stats.Text = s.AnyClientSendsMic
             ? $"Lost {s.MicPacketsLost} · Underruns {s.MicUnderruns}"
             : "";
-        _tray.Text = s.IsConnected ? Truncate($"SoundSwap · {s.ClientName}", 63) : "SoundSwap · waiting for phone";
+        _tray.Text = clients.Count switch
+        {
+            0 => "SoundSwap · waiting for phone",
+            1 => Truncate($"SoundSwap · {clients[0].Name}", 63),
+            _ => $"SoundSwap · {clients.Count} phones",
+        };
+    }
+
+    void UpdateFooter()
+    {
+        Footer.Text = $"This PC: {Environment.MachineName}  ·  {string.Join(", ", GetLocalIPs())}";
     }
 
     static double Meter(float peak)
@@ -383,9 +397,10 @@ public partial class MainWindow : Window
             var props = nic.GetIPProperties();
             if (props.GatewayAddresses.Count == 0 && !nic.Description.Contains("NDIS", StringComparison.OrdinalIgnoreCase))
                 continue; // skip virtual adapters (Hyper-V, VPN, etc.)
+            bool usb = LinkInfo.IsUsbAdapter(nic.Description);
             foreach (var addr in props.UnicastAddresses)
                 if (addr.Address.AddressFamily == AddressFamily.InterNetwork)
-                    list.Add(addr.Address.ToString());
+                    list.Add(usb ? $"{addr.Address} (USB)" : addr.Address.ToString());
         }
         return list;
     }

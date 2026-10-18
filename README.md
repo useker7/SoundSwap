@@ -29,6 +29,8 @@
 - **PC → phone:** everything playing on Windows (games, music, calls) comes out of the phone's speaker or the headphones plugged into it.
 - **Phone → PC:** the phone's microphone (or its headset mic) shows up in Windows as a normal input device, **SoundSwap Microphone**, usable in Discord, Zoom, OBS and so on.
 - **Low latency:** uncompressed 48 kHz PCM in 5 ms UDP packets, an adaptive jitter buffer with clock-drift compensation, and low-latency audio paths on every platform.
+- **Several phones at once:** up to 8 phones can listen at the same time, and their microphones are mixed into one *SoundSwap Microphone*, each with its own jitter buffer.
+- **USB connection:** over a USB cable (Android *USB tethering*, iPhone *Personal Hotspot*) for the lowest and steadiest latency; the apps detect it and list the PC with a USB label.
 - **Zero configuration:** the PC advertises itself over mDNS/DNS-SD, so the phone apps list it automatically. No IP address to type (a manual fallback exists).
 - **Follows the default device:** when you switch speakers in Windows, the capture moves to the new device by itself.
 - **One-click virtual microphone:** downloads and installs VB-Audio Virtual Cable, checks its Authenticode signature first, and renames the device to *SoundSwap Microphone*.
@@ -66,7 +68,7 @@ flowchart LR
 | Folder | Contents |
 |---|---|
 | [`windows/SoundSwap`](windows/SoundSwap) | Windows app: C#, .NET 8, WPF, NAudio |
-| [`windows/SoundSwap.Tests`](windows/SoundSwap.Tests) | xUnit tests for the jitter buffer and the protocol |
+| [`windows/SoundSwap.Tests`](windows/SoundSwap.Tests) | xUnit tests for the jitter buffer, the microphone mixer, USB link detection and the protocol |
 | [`android`](android) | Android app: Kotlin, Jetpack Compose, Android 8.0+ (with JVM unit tests) |
 | [`ios`](ios) | iOS app: Swift, SwiftUI, iOS 15+, project generated with XcodeGen |
 | [`.github/workflows`](.github/workflows) | CI for all three platforms and the release pipeline |
@@ -95,7 +97,7 @@ Everything is little-endian. The PC listens on **UDP 50505**. Audio is **PCM s16
 | 6 `DISCOVER` | phone → broadcast | – |
 | 7 `DISCOVER_REPLY` | PC → phone | PC name (UTF-8) |
 
-- `HELLO` doubles as a keep-alive: the PC treats the last phone that sent one as its client and drops it after 3 s of silence.
+- `HELLO` doubles as a keep-alive: every phone that sends one is a client (up to 8) and is dropped after 3 s of silence or on `BYE`.
 - Receivers use the sequence number to discard late and duplicate packets and to count losses.
 - Audio is deliberately **not compressed**: a codec would add algorithmic delay and CPU cost. The price is about 1.6 Mbit/s PC → phone and 0.8 Mbit/s back, which is trivial on a LAN.
 - Outgoing packets are marked DSCP EF (`IP_TOS 0xB8`) so Wi-Fi access points that honour WMM can put them in the voice queue.
@@ -110,6 +112,18 @@ Wi-Fi delivers packets in bursts, and the sender's and receiver's sound cards ru
 4. **Overflow:** if a write does not fit, the oldest samples are discarded, so the buffer always holds the newest audio.
 
 These rules are covered by unit tests on Windows and Android.
+
+### Several phones at once
+
+[`AudioServer`](windows/SoundSwap/AudioServer.cs) keeps a table of clients keyed by their UDP endpoint. Each 5 ms frame of PC audio is encoded once and sent to every phone that asked for it, so all phones see the same continuous sequence. Microphones go through [`MicMixer`](windows/SoundSwap/MicMixer.cs): every phone gets its own jitter buffer, and the output callback sums them and clips to full scale. A phone whose buffer is still priming contributes silence instead of holding the others back. The channel list is copy-on-write, so the real-time audio thread never takes a lock.
+
+### USB connection
+
+Android's *USB tethering* and the iPhone's *Personal Hotspot* over USB both create a network over the cable, so SoundSwap runs over USB with no extra protocol: the same UDP packets, just without Wi-Fi's jitter.
+
+- **Windows:** [`LinkInfo`](windows/SoundSwap/LinkInfo.cs) recognises the tethering adapters (Remote NDIS, Apple Mobile Device Ethernet, NCM) and marks phones on their subnet as connected via USB.
+- **Android:** [`UsbLink`](android/app/src/main/java/com/soundswap/app/UsbLink.kt) finds the `rndis`/`usb`/`ncm` interfaces. The PC address on that subnet is preferred over the Wi-Fi one and listed first with a USB label. A helper dialog opens the tethering settings.
+- **iOS:** PCs on the Personal Hotspot subnet (`172.20.10.0/28`) are preferred and labelled. Windows needs Apple's USB driver (the Apple Devices app or iTunes).
 
 ### Capturing PC audio: WASAPI loopback
 
@@ -168,6 +182,8 @@ Prebuilt binaries are attached to each [GitHub Release](../../releases/latest).
 
 Install `SoundSwap.apk` (allow installs from unknown sources) or use `adb install -r SoundSwap.apk`. Open the app and tap your PC in the list. Streaming continues with the screen off; the notification has a **Stop** button.
 
+**USB:** connect the phone with a cable and turn on *USB tethering* (the app's **Connect with USB** button opens the setting). The PC then appears with a USB label. While tethering is on, Windows may route its internet traffic through the phone's mobile data.
+
 ### iOS 15+
 
 iOS apps can only be built on macOS, and installing outside the App Store requires signing with your own Apple ID:
@@ -176,6 +192,8 @@ iOS apps can only be built on macOS, and installing outside the App Store requir
 - **Without a Mac:** download `SoundSwap-unsigned.ipa` from a release or from the **iOS** workflow run, then sign and install it with [Sideloadly](https://sideloadly.io/) or AltStore. With a free Apple ID the signature has to be renewed every 7 days.
 
 On first launch, allow **Local Network** access (needed for discovery). Microphone permission is requested on the first connection.
+
+**USB:** connect the iPhone with a cable and turn on *Settings > Personal Hotspot > Allow Others to Join*. Windows needs the Apple Devices app (or iTunes) for the USB network driver. Personal Hotspot requires a cellular plan that allows it.
 
 ## Building from source
 
@@ -194,7 +212,7 @@ The release APK is signed with the debug key so anyone can build and sideload it
 
 ## Limitations
 
-- One phone at a time.
+- Up to 8 phones at a time.
 - Traffic is **unencrypted and unauthenticated**. SoundSwap is meant for a trusted LAN or USB tether; never expose UDP 50505 to the internet.
 - Windows only on the PC side (WASAPI, `dnsapi` mDNS, VB-Cable).
 - The virtual microphone depends on the third-party VB-Cable driver, and its licence keeps "(VB-Audio Virtual Cable)" visible in the device name.

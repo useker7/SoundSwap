@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import java.net.Inet4Address
 
@@ -21,17 +22,22 @@ class PcDiscovery(context: Context) {
 
     /**
      * The same PC may be seen via several paths/IPs; one entry is kept per name.
-     * The address that answered the broadcast is preferred (it is known to be reachable from the phone).
+     * Address preference: USB cable > answered our broadcast (known reachable) > mDNS.
      */
     data class Pc(
         val name: String,
         val address: String,
+        val viaUsb: Boolean,
         val viaMdns: Boolean,
         val viaBroadcast: Boolean,
         val lastSeen: Long,
+        val addressScore: Int = 0,
     )
 
     val pcs: SnapshotStateList<Pc> = mutableStateListOf()
+
+    /** True while USB tethering is on (refreshed every few seconds). */
+    val usbTethering = mutableStateOf(false)
 
     private val nsd = context.applicationContext.getSystemService(NsdManager::class.java)
     private val main = Handler(Looper.getMainLooper())
@@ -74,7 +80,7 @@ class PcDiscovery(context: Context) {
             }
             override fun onServiceLost(info: NsdServiceInfo) {
                 main.post {
-                    val i = pcs.indexOfFirst { it.name.equals(info.serviceName, ignoreCase = true) }
+                    val i = pcs.indexOfFirst { it.name.equals(displayName(info.serviceName), ignoreCase = true) }
                     if (i >= 0) {
                         if (pcs[i].viaBroadcast) pcs[i] = pcs[i].copy(viaMdns = false) else pcs.removeAt(i)
                     }
@@ -95,7 +101,7 @@ class PcDiscovery(context: Context) {
             main.post {
                 resolving = false
                 val address = resolved?.let { ipv4Of(it) }
-                if (address != null && running) upsert(resolved.serviceName, address, viaMdns = true)
+                if (address != null && running) upsert(displayName(resolved.serviceName), address, viaMdns = true)
                 resolveNext()
             }
         }
@@ -124,8 +130,10 @@ class PcDiscovery(context: Context) {
             } catch (_: Exception) {
                 emptyList()
             }
+            val tethering = UsbLink.tetheringActive()
             main.post {
                 if (!running) return@post
+                usbTethering.value = tethering
                 found.forEach { upsert(it.name, it.address, viaMdns = false) }
                 val cutoff = SystemClock.elapsedRealtime() - 12_000
                 for (i in pcs.indices.reversed()) {
@@ -145,20 +153,32 @@ class PcDiscovery(context: Context) {
 
     private fun upsert(name: String, address: String, viaMdns: Boolean) {
         val now = SystemClock.elapsedRealtime()
+        val usb = UsbLink.isUsbAddress(address)
+        val score = (if (usb) 2 else 0) + (if (viaMdns) 0 else 1)
         val i = pcs.indexOfFirst { it.name.equals(name, ignoreCase = true) }
         if (i < 0) {
-            pcs.add(Pc(name, address, viaMdns = viaMdns, viaBroadcast = !viaMdns, lastSeen = now))
+            pcs.add(Pc(name, address, usb, viaMdns = viaMdns, viaBroadcast = !viaMdns, lastSeen = now, addressScore = score))
             return
         }
         val old = pcs[i]
-        pcs[i] = if (viaMdns) {
-            old.copy(viaMdns = true, address = if (old.viaBroadcast) old.address else address)
-        } else {
-            old.copy(viaBroadcast = true, address = address, lastSeen = now)
-        }
+        val better = score >= old.addressScore
+        pcs[i] = old.copy(
+            address = if (better) address else old.address,
+            viaUsb = if (better) usb else old.viaUsb,
+            addressScore = if (better) score else old.addressScore,
+            viaMdns = old.viaMdns || viaMdns,
+            viaBroadcast = old.viaBroadcast || !viaMdns,
+            lastSeen = if (viaMdns) old.lastSeen else now,
+        )
     }
 
     companion object {
         const val SERVICE_TYPE = "_soundswap._udp"
+
+        /**
+         * Bonjour appends " (2)"/"(1)" to a name when it sees a conflict - for example a stale registration
+         * left behind by a SoundSwap instance that was killed. They are the same PC, so the suffix is dropped.
+         */
+        fun displayName(serviceName: String): String = serviceName.replace(Regex("""\s*\(\d+\)$"""), "")
     }
 }

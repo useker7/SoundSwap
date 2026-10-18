@@ -91,7 +91,7 @@ final class EngineModel: ObservableObject {
         } else if e.connected {
             hasError = false
             title = e.pcName ?? e.config.host
-            detail = "Connected · \(e.config.host)"
+            detail = (e.config.host.hasPrefix("172.20.10.") ? "Connected via Personal Hotspot · " : "Connected · ") + e.config.host
         } else {
             hasError = false
             title = "Connecting…"
@@ -119,6 +119,7 @@ struct ContentView: View {
     @StateObject private var model = EngineModel()
     @StateObject private var browser = PcBrowser()
     @State private var showManual = false
+    @State private var showUsbHelp = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -191,6 +192,7 @@ struct ContentView: View {
         .sheet(isPresented: $showManual) {
             ManualAddressSheet(initial: lastHost) { connect($0) }
         }
+        .background(EmptyView().sheet(isPresented: $showUsbHelp) { UsbHelpSheet() })
         .alert(item: Binding(
             get: { model.alert.map { AlertText(text: $0) } },
             set: { model.alert = $0?.text }
@@ -222,7 +224,10 @@ struct ContentView: View {
                         HStack(spacing: 14) {
                             IconBadge(systemName: "desktopcomputer")
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(pc.name).font(.headline).foregroundColor(.primary)
+                                HStack(spacing: 8) {
+                                    Text(pc.name).font(.headline).foregroundColor(.primary)
+                                    if pc.viaHotspot { HotspotBadge() }
+                                }
                                 Text(pc.address == lastHost ? "\(pc.address) · Last connected" : pc.address)
                                     .font(.caption)
                                     .foregroundColor(.secondary)
@@ -235,6 +240,7 @@ struct ContentView: View {
                 }
             }
             Button("Enter address manually") { showManual = true }
+            Button("Connect with USB") { showUsbHelp = true }
         } header: {
             Text("PCs")
         }
@@ -269,6 +275,7 @@ struct ContentView: View {
 
     private var sortedPcs: [PcBrowser.Pc] {
         browser.pcs.sorted { a, b in
+            if a.viaHotspot != b.viaHotspot { return a.viaHotspot }
             if (a.address == lastHost) != (b.address == lastHost) { return a.address == lastHost }
             return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
         }
@@ -424,4 +431,61 @@ private struct ManualAddressSheet: View {
 private struct AlertText: Identifiable {
     let text: String
     var id: String { text }
+}
+
+private struct HotspotBadge: View {
+    var body: some View {
+        Text("USB / Hotspot")
+            .font(.caption2.weight(.semibold))
+            .foregroundColor(.brand)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5).fill(Color.brand.opacity(0.12)))
+    }
+}
+
+/// How to connect over a USB cable: the iPhone's Personal Hotspot also works over USB and gives
+/// the lowest, steadiest latency.
+private struct UsbHelpSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                Section {
+                    Step(number: 1, text: "Connect the iPhone to the PC with a USB cable.")
+                    Step(number: 2, text: "On the iPhone open Settings > Personal Hotspot and turn on \u{201C}Allow Others to Join\u{201D}.")
+                    Step(number: 3, text: "If Windows asks, tap \u{201C}Trust\u{201D} on the iPhone.")
+                    Step(number: 4, text: "Come back here: the PC appears with a USB / Hotspot label.")
+                } footer: {
+                    Text("Windows needs Apple's USB driver, which comes with the Apple Devices app (or iTunes) from the Microsoft Store. Personal Hotspot requires a cellular plan that allows it.")
+                }
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Connect with USB")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private struct Step: View {
+        let number: Int
+        let text: String
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 12) {
+                Text("\(number)")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 24, height: 24)
+                    .background(Circle().fill(Color.brand))
+                Text(text)
+            }
+            .padding(.vertical, 2)
+        }
+    }
 }

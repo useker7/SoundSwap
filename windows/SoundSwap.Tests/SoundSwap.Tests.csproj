@@ -17,6 +17,8 @@
   <ItemGroup>
     <Compile Include="..\SoundSwap\JitterBuffer.cs" Link="Source\JitterBuffer.cs" />
     <Compile Include="..\SoundSwap\Protocol.cs" Link="Source\Protocol.cs" />
+    <Compile Include="..\SoundSwap\MicMixer.cs" Link="Source\MicMixer.cs" />
+    <Compile Include="..\SoundSwap\LinkInfo.cs" Link="Source\LinkInfo.cs" />
   </ItemGroup>
 
   <ItemGroup>

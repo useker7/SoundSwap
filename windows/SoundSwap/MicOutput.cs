@@ -5,23 +5,19 @@ using NAudio.Wave.SampleProviders;
 namespace SoundSwap;
 
 /// <summary>
-/// Plays the microphone audio from the phone into an output device. That device should be the
-/// virtual cable's input (e.g. "CABLE Input"); Windows then shows "CABLE Output" as a microphone.
+/// Plays the (mixed) microphone audio from the phones into an output device. That device is the
+/// virtual cable's input; Windows then shows the cable's other end as a microphone.
 /// </summary>
 sealed class MicOutput : IDisposable
 {
-    readonly JitterBuffer _jitter;
     readonly WasapiOut _out;
-    float[] _floatBuf = new float[960];
-
-    public volatile float Peak;
 
     public MicOutput(MMDevice device, int targetMs)
     {
-        _jitter = new JitterBuffer(1, Protocol.SampleRate, 500, targetMs);
+        Mixer = new MicMixer(targetMs);
         var mix = device.AudioClient.MixFormat;
 
-        ISampleProvider src = new JitterSampleProvider(_jitter);
+        ISampleProvider src = new MixerSampleProvider(Mixer);
         if (mix.Channels > 1) src = new MonoToMultiChannel(src, mix.Channels);
         if (mix.SampleRate != Protocol.SampleRate) src = new WdlResamplingSampleProvider(src, mix.SampleRate);
 
@@ -30,25 +26,7 @@ sealed class MicOutput : IDisposable
         _out.Play();
     }
 
-    public JitterBuffer Jitter => _jitter;
-
-    public int TargetMs { set => _jitter.TargetMs = value; }
-
-    /// <summary>s16le mono PCM.</summary>
-    public void Push(ReadOnlySpan<byte> pcm)
-    {
-        int n = pcm.Length / 2;
-        if (_floatBuf.Length < n) _floatBuf = new float[n];
-        float peak = 0;
-        for (int i = 0; i < n; i++)
-        {
-            float s = (short)(pcm[i * 2] | (pcm[i * 2 + 1] << 8)) / 32768f;
-            _floatBuf[i] = s;
-            peak = Math.Max(peak, Math.Abs(s));
-        }
-        Peak = Math.Max(peak, Peak * 0.9f);
-        _jitter.Write(_floatBuf.AsSpan(0, n));
-    }
+    public MicMixer Mixer { get; }
 
     public void Dispose()
     {
@@ -56,13 +34,13 @@ sealed class MicOutput : IDisposable
         _out.Dispose();
     }
 
-    sealed class JitterSampleProvider(JitterBuffer jitter) : ISampleProvider
+    sealed class MixerSampleProvider(MicMixer mixer) : ISampleProvider
     {
         public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(Protocol.SampleRate, 1);
 
         public int Read(float[] buffer, int offset, int count)
         {
-            jitter.Read(buffer.AsSpan(offset, count));
+            mixer.Mix(buffer.AsSpan(offset, count));
             return count;
         }
     }
