@@ -121,7 +121,7 @@ These rules are covered by unit tests on Windows and Android.
 
 Android's *USB tethering* and the iPhone's *Personal Hotspot* over USB both create a network over the cable, so SoundSwap runs over USB with no extra protocol: the same UDP packets, just without Wi-Fi's jitter.
 
-- **Windows:** [`LinkInfo`](windows/SoundSwap/LinkInfo.cs) recognises the tethering adapters (Remote NDIS, Apple Mobile Device Ethernet, NCM) and marks phones on their subnet as connected via USB.
+- **Windows:** [`LinkInfo`](windows/SoundSwap/LinkInfo.cs) recognises the tethering adapters (Remote NDIS, Apple Mobile Device Ethernet, NCM) and marks phones on their subnet as connected via USB. Windows puts every new network, including the phone's USB network, in the *Public* profile, where the firewall permission does not apply. [`NetworkCategory`](windows/SoundSwap/NetworkCategory.cs) detects this through the Network List Manager COM API and shows a warning with an **Allow** button. The button starts an elevated copy of SoundSwap (`--usb-allow`) that marks only that network as *Private*.
 - **Android:** [`UsbLink`](android/app/src/main/java/com/soundswap/app/UsbLink.kt) finds the `rndis`/`usb`/`ncm` interfaces. The PC address on that subnet is preferred over the Wi-Fi one and listed first with a USB label. A helper dialog opens the tethering settings.
 - **iOS:** PCs on the Personal Hotspot subnet (`172.20.10.0/28`) are preferred and labelled. Windows needs Apple's USB driver (the Apple Devices app or iTunes).
 

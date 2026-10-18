@@ -82,6 +82,7 @@ public partial class MainWindow : Window
         SendSwitch.Click += (_, _) => { Save(); UpdateSource(); };
         MicSwitch.Click += (_, _) => { Save(); UpdateMic(); };
         MicSetupButton.Click += OnMicSetupClick;
+        UsbAllowButton.Click += OnUsbAllowClick;
         MuteSwitch.Click += (_, _) => Save();
         StartupSwitch.Click += (_, _) =>
         {
@@ -102,6 +103,7 @@ public partial class MainWindow : Window
         };
 
         UpdateFooter();
+        CheckUsbNetworks();
 
         UpdateSource();
         UpdateMic();
@@ -332,7 +334,12 @@ public partial class MainWindow : Window
         if (_tick++ % 5 != 0) return;
 
         ApplyMute(MuteSwitch.IsChecked == true && s.AnyClientWantsPcAudio && _sourceId != null);
-        if (_tick % 25 == 1) UpdateFooter(); // USB tethering adapters come and go
+        if (_tick % 25 == 1)
+        {
+            // USB tethering adapters come and go.
+            UpdateFooter();
+            CheckUsbNetworks();
+        }
 
         var clients = s.Clients;
         string state;
@@ -371,6 +378,37 @@ public partial class MainWindow : Window
             1 => Truncate($"SoundSwap · {clients[0].Name}", 63),
             _ => $"SoundSwap · {clients.Count} phones",
         };
+    }
+
+    NetworkCategory.UsbNetwork? _blockedUsb;
+    bool _usbAllowBusy;
+
+    /// <summary>Shows the warning card when a phone's USB network is "Public" (the firewall blocks it there).</summary>
+    void CheckUsbNetworks()
+    {
+        if (_usbAllowBusy) return;
+        _blockedUsb = NetworkCategory.FindPublicUsbNetworks().FirstOrDefault();
+        UsbBlockedCard.Visibility = _blockedUsb != null ? Visibility.Visible : Visibility.Collapsed;
+        if (_blockedUsb != null)
+            UsbBlockedText.Text =
+                $"A phone is connected over USB (\"{_blockedUsb.AdapterName}\"), but Windows treats this network as public, " +
+                "so the firewall blocks SoundSwap on it. Allow marks it as a private network.";
+    }
+
+    async void OnUsbAllowClick(object sender, RoutedEventArgs e)
+    {
+        if (_blockedUsb == null || _usbAllowBusy) return;
+        _usbAllowBusy = true;
+        UsbAllowButton.IsEnabled = false;
+        var result = await NetworkCategory.AllowAsync(_blockedUsb.AdapterId);
+        _usbAllowBusy = false;
+        UsbAllowButton.IsEnabled = true;
+        if (result == false)
+            MessageBox.Show(this,
+                "The network could not be changed. You can do it in Settings > Network & internet > Ethernet > " +
+                $"{_blockedUsb.AdapterName} > Network profile type > Private network.",
+                "SoundSwap", MessageBoxButton.OK, MessageBoxImage.Warning);
+        CheckUsbNetworks();
     }
 
     void UpdateFooter()

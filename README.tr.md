@@ -75,6 +75,7 @@ Bilgisayarın sesini telefona aktarır, telefonun mikrofonunu da bilgisayara mik
 2. Uygulamayı açın. Aynı ağdaki bilgisayarlar **kendiliğinden listelenir**; bilgisayara dokunun. Gerekirse **Enter address manually** ile PC penceresinin altında yazan IP'yi girebilirsiniz.
 3. Ekran kapalıyken de çalışır (bildirimde **Stop** düğmesi var).
 4. **USB ile:** Telefonu kabloyla PC'ye bağlayın ve *USB tethering*'i açın (uygulamadaki **Connect with USB** düğmesi ilgili ayarı açar). Bilgisayar listede "USB" etiketiyle görünür. Bu sırada Windows interneti telefonun mobil verisi üzerinden kullanabilir.
+   - Windows yeni ağları "Genel" sayar ve güvenlik duvarı izni bu ağlarda geçerli olmaz. PC uygulaması bunu algılarsa **USB connection is blocked** uyarısı çıkar. **Allow**'a basınca tek bir yönetici izniyle yalnızca o USB ağı "Özel" yapılır. Aynı durum iPhone'un USB bağlantısı için de geçerlidir.
 
 ### 3. iOS (iPhone / iPad)
 

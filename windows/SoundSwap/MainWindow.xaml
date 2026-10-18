@@ -54,6 +54,29 @@
             </Grid>
         </Border>
 
+        <!-- Shown when a phone's USB network is "Public" and the firewall blocks it -->
+        <Border x:Name="UsbBlockedCard" Style="{StaticResource Card}" Margin="0,12,0,0" Visibility="Collapsed"
+                BorderBrush="{DynamicResource WarnBrush}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource RowIcon}" Background="Transparent">
+                    <TextBlock Text="&#xE7BA;" Style="{StaticResource RowIconGlyph}" Foreground="{DynamicResource WarnBrush}" />
+                </Border>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="USB connection is blocked" Style="{StaticResource Title}" />
+                    <TextBlock x:Name="UsbBlockedText" Style="{StaticResource Sub}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button x:Name="UsbAllowButton" Style="{StaticResource Primary}" Content="Allow" />
+                        <TextBlock Text="Asks for administrator permission once." Style="{StaticResource Sub}"
+                                   FontSize="11.5" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Audio directions -->
         <Border Style="{StaticResource Card}" Margin="0,12,0,0">
             <StackPanel>

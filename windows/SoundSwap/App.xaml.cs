@@ -18,6 +18,13 @@ public partial class App : Application
             return;
         }
 
+        // Helper process launched with admin rights: marks a USB phone network as private.
+        if (e.Args.Length > 1 && e.Args[0] == NetworkCategory.AllowArg && Guid.TryParse(e.Args[1], out var adapterId))
+        {
+            Shutdown(NetworkCategory.SetPrivate(adapterId) ? 0 : 1);
+            return;
+        }
+
         string? Arg(string name) => e.Args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
         string? screenshot = Arg("--screenshot");
 
