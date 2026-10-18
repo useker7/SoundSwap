@@ -13,7 +13,7 @@
   <a href="../../actions/workflows/windows.yml"><img src="../../actions/workflows/windows.yml/badge.svg" alt="Windows CI"></a>
   <a href="../../actions/workflows/android.yml"><img src="../../actions/workflows/android.yml/badge.svg" alt="Android CI"></a>
   <a href="../../actions/workflows/ios.yml"><img src="../../actions/workflows/ios.yml/badge.svg" alt="iOS CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-proprietary-lightgrey.svg" alt="Proprietary license"></a>
 </p>
 
 <p align="center"><b>English</b> · <a href="README.tr.md">Türkçe</a></p>
@@ -227,4 +227,6 @@ The release APK is signed with the debug key so anyone can build and sideload it
 
 ## License
 
-SoundSwap is released under the [MIT License](LICENSE). VB-CABLE is not part of this repository and is covered by its own licence.
+Copyright © 2026 Utku Şeker. All rights reserved. Starting with version 1.2.0, SoundSwap is **proprietary**: the source code is published for viewing only, and it may not be copied, modified, redistributed or used in other projects without written permission. The released apps are free for personal use. See [LICENSE](LICENSE) for the full terms. Versions before 1.2.0 were released under the MIT License, which still applies to those versions.
+
+Third-party components keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). VB-CABLE is not part of this repository and is covered by its own licence.

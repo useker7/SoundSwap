@@ -12,7 +12,7 @@
     <AssemblyName>SoundSwap</AssemblyName>
     <RootNamespace>SoundSwap</RootNamespace>
     <ApplicationIcon>..\..\assets\SoundSwap.ico</ApplicationIcon>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>SoundSwap</Product>
   </PropertyGroup>
 

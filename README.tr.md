@@ -170,4 +170,6 @@ Her paketin 8 baytlık başlığı:
 
 ## Lisans
 
-[MIT](LICENSE). VB-CABLE bu deponun parçası değildir; VB-Audio Software'in bağış usulü (donationware) ürünüdür ve kendi lisansına tabidir.
+Telif hakkı © 2026 Utku Şeker. Tüm hakları saklıdır. 1.2.0 sürümünden itibaren SoundSwap **tescilli (proprietary)** bir yazılımdır: kaynak kod yalnızca incelenmek üzere yayınlanır; yazılı izin olmadan kopyalanamaz, değiştirilemez, dağıtılamaz ve başka projelerde kullanılamaz. Yayınlanan uygulamalar kişisel kullanım için ücretsizdir. Tam metin: [LICENSE](LICENSE). 1.2.0 öncesi sürümler MIT lisansıyla yayınlanmıştır ve o sürümler için MIT geçerli olmaya devam eder.
+
+Kullanılan üçüncü taraf bileşenler kendi lisanslarına tabidir: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). VB-CABLE bu deponun parçası değildir; VB-Audio Software'in bağış usulü (donationware) ürünüdür ve kendi lisansına tabidir.

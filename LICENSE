@@ -1,21 +1,37 @@
-MIT License
+SoundSwap - Proprietary License
 
-Copyright (c) 2026 Utku Şeker
+Copyright (c) 2026 Utku Şeker. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Ownership. The source code, assets, documentation and compiled applications in
+   this repository (the "Software") are the property of the copyright holder and are
+   protected by copyright law.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. Source code. The source code is published for viewing only, for example to show
+   the author's work. No permission is granted to copy, modify, merge, translate,
+   publish, distribute, sublicense or sell the Software or any part of it, to create
+   derivative works from it, or to use it in any other product or service, without
+   the prior written permission of the copyright holder. Viewing and forking this
+   repository on GitHub is permitted only to the extent required by the GitHub
+   Terms of Service.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. Applications. The compiled SoundSwap applications published by the copyright
+   holder (on GitHub Releases or in an app store) may be installed and used free of
+   charge for personal purposes. They may not be redistributed, resold, repackaged
+   or modified.
+
+4. Third-party components. Third-party libraries and assets used by the Software are
+   licensed under their own terms, listed in THIRD_PARTY_NOTICES.md. Nothing in this
+   license limits the rights granted by those licenses.
+
+5. Earlier versions. Versions of SoundSwap published before version 1.2.0 were
+   released under the MIT License, and that license continues to apply to those
+   versions only. This license applies to version 1.2.0 and later.
+
+6. No warranty. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+   SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY
+   ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+For permission requests, contact the copyright holder through
+https://github.com/useker7.
