@@ -15,7 +15,7 @@ class UsbLinkTest {
 
     @Test
     fun sameSubnet_rejectsWifiAddress() {
-        assertFalse(UsbLink.sameSubnet(ip("192.168.42.129"), ip("192.168.1.16"), 24))
+        assertFalse(UsbLink.sameSubnet(ip("192.168.42.129"), ip("192.168.1.20"), 24))
     }
 
     @Test

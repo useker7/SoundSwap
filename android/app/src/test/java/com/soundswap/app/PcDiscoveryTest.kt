@@ -6,7 +6,7 @@ import org.junit.Test
 class PcDiscoveryTest {
     @Test
     fun displayName_dropsBonjourConflictSuffix() {
-        assertEquals("086F1EAA", PcDiscovery.displayName("086F1EAA(1)"))
+        assertEquals("DESKTOP-ABC", PcDiscovery.displayName("DESKTOP-ABC(1)"))
         assertEquals("Gaming PC", PcDiscovery.displayName("Gaming PC (2)"))
     }
 
